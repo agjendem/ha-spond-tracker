@@ -1,0 +1,28 @@
+# Personal/runtime configuration — NEVER commit
+apps.yaml
+secrets.yaml
+secrets.*.yaml
+*.local.yaml
+.env
+.env.*
+
+# Local calendars / runtime artefacts
+*.ics
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~

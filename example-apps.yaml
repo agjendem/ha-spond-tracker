@@ -1,0 +1,41 @@
+# Example AppDaemon apps.yaml entry for spond_tracker.
+#
+# Copy the `spond_tracker:` block into your actual apps.yaml
+# (typically /config/appdaemon/apps/apps.yaml) and adjust to your setup.
+#
+# IMPORTANT:
+#   - Username/password should be referenced via !secret, never inlined.
+#   - apps.yaml itself must NEVER be committed to a public repo —
+#     it identifies your accounts and family members.
+#
+---
+spond_tracker:
+  module: spond_tracker
+  class: SpondTracker
+
+  # One entry per Spond account you log in with.
+  # The app aggregates events from all accounts and de-duplicates per member.
+  accounts:
+    - name: ParentA
+      username: !secret spond_parent_a_username
+      password: !secret spond_parent_a_password
+    - name: ParentB
+      username: !secret spond_parent_b_username
+      password: !secret spond_parent_b_password
+
+  # One entry per family member you want to sync.
+  # `canonical`     = lowercase first name. The app matches this to the first
+  #                   word of the Spond `firstName` field on memberships you
+  #                   can respond on-behalf-of. Must be unique.
+  # `display_name`  = used in sensor friendly names.
+  # `config_entry_id` = the config-entry ID of a `local_calendar` integration
+  #                     instance dedicated to this member. Find it under
+  #                     Settings -> Devices & Services -> Local Calendar ->
+  #                     three dots -> click the calendar -> URL bar.
+  members:
+    - canonical: alice
+      display_name: Alice
+      config_entry_id: 01HXXXXXXXXXXXXXXXXXXXXXXX
+    - canonical: bob
+      display_name: Bob
+      config_entry_id: 01HYYYYYYYYYYYYYYYYYYYYYYY
