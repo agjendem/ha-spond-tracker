@@ -1,0 +1,23 @@
+{
+  "calendar": {
+    "cancelled_prefix": "CANCELLED: ",
+    "status_label": "Status",
+    "location_label": "Location",
+    "address_label": "Address",
+    "my_tasks_header": "My tasks:",
+    "all_tasks_header": "All tasks:",
+    "signed_up_suffix": "signed up",
+    "open_slot": "OPEN",
+    "adults_only": "adults only",
+    "co_assignees_with": "with",
+    "task_for": "Task for",
+    "on_event": "On event",
+    "task_signed_up": "Signed up",
+    "task_with": "With",
+    "main_event_cancelled": "⚠️ Main event is CANCELLED"
+  },
+  "sensors": {
+    "events_friendly": "Spond {name}",
+    "tasks_friendly": "Spond tasks {name}"
+  }
+}

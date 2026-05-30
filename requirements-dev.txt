@@ -1,0 +1,4 @@
+# Development dependencies for working on spond_tracker locally and in CI.
+# Install into a virtualenv: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements-dev.txt`.
+
+ruff==0.15.15

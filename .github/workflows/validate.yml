@@ -1,0 +1,19 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly to catch breaking changes in HACS' validator itself.
+    - cron: "0 6 * * 1"
+
+jobs:
+  hacs:
+    name: HACS structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@22.5.0
+        with:
+          category: appdaemon

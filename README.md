@@ -2,28 +2,29 @@
 
 An [AppDaemon](https://appdaemon.readthedocs.io/) app that syncs
 [Spond](https://www.spond.com/) events and tasks into Home Assistant —
-one local calendar per family member, plus per-member sensors and
+one local calendar per tracked member, plus per-member sensors and
 real-time events on the HA event bus.
 
-Built for households where multiple parents have Spond accounts and
-multiple children participate in groups. Events are de-duplicated across
-parent accounts and mapped to the right child via Spond's
-`behalfOfIds` field.
+Built for setups where one or more Spond accounts cover overlapping
+group members — typical examples include shared households, sports
+clubs with multiple coaches, or staff at after-school programs. Events
+are de-duplicated across accounts and mapped to the right tracked
+member via Spond's `behalfOfIds` field.
 
 ## Features
 
-- **Per-member local calendars**: one `.ics` file per family member,
+- **Per-member local calendars**: one `.ics` file per tracked member,
   written into a `local_calendar` config entry you control. Past events
   are preserved; future events are replaced wholesale each poll.
-- **Multi-account aggregation**: log in with both parents' Spond
-  accounts and the app de-duplicates events across them.
+- **Multi-account aggregation**: log in with one or more Spond accounts
+  and the app de-duplicates events across them.
 - **Status-aware**: accepted / declined / unanswered / waitinglist /
   cancelled — shown as emoji prefixes in the calendar `SUMMARY` and
   filtered from "events today"-counts. Declined events are filtered out
   of the calendar entirely.
 - **Tasks as separate calendar events**: tasks assigned to you appear as
-  their own `VEVENT` with a `📋` prefix at the start-time of the parent
-  event.
+  their own `VEVENT` with a `📋` prefix at the start-time of the
+  underlying event.
 - **Cancelled events** are shown with `🚫 AVLYST:` prefix in the
   calendar (so you keep historical context) but excluded from "today"
   counts.
@@ -33,6 +34,9 @@ parent accounts and mapped to the right child via Spond's
   Use these to drive notifications, automations, etc.
 - **Polling schedule**: hourly 06–14, every 30 min 15–22:30, idle
   overnight (configurable in code).
+- **Localization**: calendar text and sensor friendly names available
+  in English (default) or Norwegian Bokmål via `language: en|nb` in
+  apps.yaml. Translations live in `apps/spond_tracker/translations/`.
 
 ## Installation via HACS
 
@@ -59,16 +63,20 @@ clone will fail silently.
 - Home Assistant (any reasonably current version)
 - The [AppDaemon 4 add-on](https://github.com/hassio-addons/addon-appdaemon)
   (or self-hosted AppDaemon ≥ 4.5)
-- One `local_calendar` integration *per family member* you want to
-  track. Add via Settings → Devices & Services → Add Integration →
+- One `local_calendar` integration *per tracked member*. Add via
+  Settings → Devices & Services → Add Integration →
   Local Calendar. Note the config entry ID of each one (see
   [Finding the config_entry_id](#finding-the-config_entry_id) below).
-- Python dependency: [`spond`](https://pypi.org/project/spond/) — add to
-  AppDaemon's `python_packages` in the add-on configuration:
+- Python dependency: [`spond`](https://pypi.org/project/spond/) at the
+  pinned version below — add to AppDaemon's `python_packages` in the
+  add-on configuration:
   ```yaml
   python_packages:
-    - spond
+    - spond==1.2.1
   ```
+  See `requirements.txt` for the canonical version pin used by this
+  release. Newer minor versions may also work, but only the pinned
+  version is tested.
 
 ## Configuration
 
@@ -78,10 +86,10 @@ In `/config/secrets.yaml`, add one username/password pair per Spond
 account you want to log in with:
 
 ```yaml
-spond_parent_a_username: parent.a@example.com
-spond_parent_a_password: hunter2
-spond_parent_b_username: parent.b@example.com
-spond_parent_b_password: hunter2
+spond_account_a_username: account-a@example.com
+spond_account_a_password: hunter2
+spond_account_b_username: account-b@example.com
+spond_account_b_password: hunter2
 ```
 
 ### 2. apps.yaml
@@ -93,13 +101,14 @@ exist), add:
 spond_tracker:
   module: spond_tracker
   class: SpondTracker
+  language: en          # en (default) | nb
   accounts:
-    - name: ParentA
-      username: !secret spond_parent_a_username
-      password: !secret spond_parent_a_password
-    - name: ParentB
-      username: !secret spond_parent_b_username
-      password: !secret spond_parent_b_password
+    - name: AccountA
+      username: !secret spond_account_a_username
+      password: !secret spond_account_a_password
+    - name: AccountB
+      username: !secret spond_account_b_username
+      password: !secret spond_account_b_password
   members:
     - canonical: alice
       display_name: Alice
@@ -127,6 +136,7 @@ then calls `homeassistant.reload_config_entry` to make HA re-read it.
 
 | Field              | Required | Description                                                                                                                    |
 | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `language`         | no       | `en` (default) or `nb` (Norwegian Bokmål). The legacy code `no` is accepted as an alias for `nb`. Controls calendar SUMMARY/DESCRIPTION text and sensor friendly names. Logs stay English. |
 | `accounts[].name`  | yes      | Free-text label, used in logs.                                                                                                 |
 | `accounts[].username` / `password` | yes | Spond credentials. **Reference via `!secret`** — never inline.                                                  |
 | `members[].canonical` | yes   | Lowercase first name. Matched against the first word of Spond's `firstName` on memberships you can respond on-behalf-of.       |
@@ -137,10 +147,10 @@ then calls `homeassistant.reload_config_entry` to make HA re-read it.
 
 ### Sensors (per member)
 
-| Sensor                              | State              | Attributes                                            |
-| ----------------------------------- | ------------------ | ----------------------------------------------------- |
-| `sensor.spond_<canonical>`          | Events today (int) | `events`: list of today's events with title/time/etc. |
-| `sensor.spond_<canonical>_oppgaver` | Open tasks (int)   | `tasks`: list of assigned tasks                       |
+| Sensor                            | State              | Attributes                                            |
+| --------------------------------- | ------------------ | ----------------------------------------------------- |
+| `sensor.spond_<canonical>`        | Events today (int) | `today_events`, `next_event`, `upcoming_events`       |
+| `sensor.spond_<canonical>_tasks`  | Open tasks (int)   | `tasks`: list of tasks assigned to this member        |
 
 ### Calendar entries
 
@@ -154,28 +164,30 @@ One `.ics` file per member. Each Spond event becomes a `VEVENT` with:
 
 Real-time events you can use as automation triggers:
 
-| Event                    | Fired when                                                          | Data fields                                     |
-| ------------------------ | ------------------------------------------------------------------- | ----------------------------------------------- |
-| `spond_event_added`      | A new event appears for a member between polls                      | `canonical`, `title`, `start`, `end`, ...        |
-| `spond_event_removed`    | An event you previously saw is gone (excl. cancellations)           | `canonical`, `title`                            |
-| `spond_event_changed`    | A field changed (title, start, end, location)                       | `canonical`, `title`, `changed_fields`          |
-| `spond_event_cancelled`  | An event flipped to cancelled                                       | `canonical`, `title`, `start`                   |
-| `spond_task_assigned`    | A new task was assigned to a member                                 | `canonical`, `task_name`, `event_title`         |
+| Event                    | Fired when                                                          | Data fields                                                        |
+| ------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `spond_event_added`      | A new event appears for a member between polls                      | `member`, `title`, `start`, `location`, `status`, `uid`            |
+| `spond_event_removed`    | An event you previously saw is gone (excl. cancellations)           | `member`, `title`, `start`, `uid`                                  |
+| `spond_event_changed`    | A field changed (title, start, end, location)                       | `member`, `title`, `start`, `status`, `changed_fields`, `uid`      |
+| `spond_event_cancelled`  | An event flipped to cancelled                                       | `member`, `title`, `start`, `location`, `uid`                      |
+| `spond_task_assigned`    | A new task was assigned to a member                                 | `member`, `title`, `start`, `task`, `uid`                          |
+
+`member` is the `canonical` slug from your apps.yaml config (e.g. `alice`).
 
 ### Example automation: ping me when I get a new task
 
 ```yaml
-alias: "Spond: ny oppgave tildelt"
+alias: "Spond: new task assigned"
 trigger:
   - platform: event
     event_type: spond_task_assigned
     event_data:
-      canonical: alice
+      member: alice
 action:
   - service: notify.mobile_app_alice_phone
     data:
-      title: "Ny Spond-oppgave"
-      message: "{{ trigger.event.data.task_name }} ({{ trigger.event.data.event_title }})"
+      title: "New Spond task"
+      message: "{{ trigger.event.data.task }} ({{ trigger.event.data.title }})"
 ```
 
 ## Polling schedule
@@ -189,11 +201,59 @@ Hard-coded in `initialize()`:
 To change, edit `initialize()` in `spond_tracker.py`. Spond's API is
 not rate-limited aggressively but be a good citizen.
 
+## Localization
+
+User-facing text (calendar SUMMARY/DESCRIPTION and sensor friendly_name)
+is loaded from JSON files in `apps/spond_tracker/translations/`. Set
+`language: en` (default) or `language: nb` in apps.yaml. The legacy
+code `no` is accepted as an alias for `nb` and will log a deprecation
+warning at startup.
+
+Lookup uses dotted paths (e.g. `calendar.location_label`,
+`sensors.events_friendly`). Fallback chain on a missing key:
+`<lang> → language-base (region stripped) → en`. If a key is missing in
+all of them, the dotted identifier itself is returned so the gap is
+visible rather than silently empty.
+
+Log messages are always English and not localized.
+
+### Adding a new language
+
+1. Copy `translations/en.json` to `translations/<bcp47>.json`
+   (e.g. `da.json`, `de.json`, `sv.json`).
+2. Translate every string. Keys must match `en.json` exactly.
+3. Open a PR — `validate.yml` will check that the JSON parses and that
+   the call sites in `spond_tracker.py` still resolve.
+
 ## Timezone
 
 The app currently assumes `Europe/Oslo` (hard-coded). If you're in
 another timezone, change `TZ = ZoneInfo("Europe/Oslo")` at the top of
-`spond_tracker.py`. Patches to make this configurable are welcome.
+`spond_tracker.py`. Making this configurable via apps.yaml is on the
+roadmap.
+
+## Migrating from earlier versions
+
+### `_oppgaver` → `_tasks` (entity_id rename)
+
+The task-count sensor was renamed from
+`sensor.spond_<canonical>_oppgaver` to `sensor.spond_<canonical>_tasks`
+to use a language-neutral entity_id. After updating, the old `_oppgaver`
+entity stays in the registry as a stale orphan with whatever state it
+last had.
+
+**Action required:**
+1. Update any references in your dashboards, automations, scripts, or
+   templates that read `sensor.spond_*_oppgaver`.
+2. After the first poll on the new version, delete the old
+   `sensor.spond_*_oppgaver` entries via Developer Tools → States →
+   delete entity (or via the entity registry).
+
+### `language: no` → `language: nb`
+
+If you previously set `language: no` in `apps.yaml`, it still works but
+emits a deprecation warning on startup. Change it to `language: nb`
+(Norwegian Bokmål per BCP-47) at your convenience.
 
 ## Troubleshooting
 
@@ -219,6 +279,33 @@ following are **never committed** and must be configured locally:
 - `*.ics` files (calendar contents)
 
 See `.gitignore`.
+
+## Development
+
+Local development uses a virtualenv with pinned tools:
+
+```bash
+git clone https://github.com/agjendem/ha-spond-tracker.git
+cd ha-spond-tracker
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+Run the same checks CI runs:
+
+```bash
+ruff check .
+ruff format --check .
+python -m json.tool apps/spond_tracker/translations/en.json > /dev/null
+python -m json.tool apps/spond_tracker/translations/nb.json > /dev/null
+python -m py_compile apps/spond_tracker/spond_tracker.py
+```
+
+Bumping a runtime dep (e.g. `spond`): update `requirements.txt`,
+`README.md`, `info.md`, and add a `CHANGELOG.md` entry under
+`## [Unreleased]`. Bumping a dev dep: update `requirements-dev.txt` and
+both workflow files under `.github/workflows/`.
 
 ## License
 

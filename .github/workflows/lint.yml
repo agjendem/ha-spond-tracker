@@ -1,0 +1,84 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ruff:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+      - name: ruff check
+        run: ruff check .
+      - name: ruff format check
+        run: ruff format --check .
+
+  translations:
+    name: JSON syntax for translations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate each translation file parses
+        run: |
+          for f in apps/spond_tracker/translations/*.json; do
+            echo "validating $f"
+            python -m json.tool "$f" > /dev/null
+          done
+      - name: Check translation files have parity with en.json
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          tdir = Path("apps/spond_tracker/translations")
+          en = json.loads((tdir / "en.json").read_text())
+
+          def flatten(d, prefix=""):
+              out = set()
+              for k, v in d.items():
+                  key = f"{prefix}{k}"
+                  if isinstance(v, dict):
+                      out |= flatten(v, key + ".")
+                  else:
+                      out.add(key)
+              return out
+
+          en_keys = flatten(en)
+          ok = True
+          for path in sorted(tdir.glob("*.json")):
+              if path.name == "en.json":
+                  continue
+              lang_keys = flatten(json.loads(path.read_text()))
+              missing = en_keys - lang_keys
+              extra = lang_keys - en_keys
+              if missing or extra:
+                  print(f"::error file={path}::missing={sorted(missing)} extra={sorted(extra)}")
+                  ok = False
+              else:
+                  print(f"{path.name}: OK ({len(lang_keys)} keys)")
+          if not ok:
+              raise SystemExit(1)
+          PY
+
+  syntax:
+    name: Python syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: py_compile
+        run: python -m py_compile apps/spond_tracker/spond_tracker.py
