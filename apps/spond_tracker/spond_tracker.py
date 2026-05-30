@@ -23,9 +23,6 @@ lang -> language-without-region -> en. Log messages are always English.
 """
 
 import contextlib
-import hashlib
-import json
-import re
 import traceback
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -33,114 +30,16 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import appdaemon.plugins.hass.hassapi as hass
 from spond import spond as spond_lib
+from spond_helpers import (
+    event_fingerprint,
+    fmt_dt,
+    ics_escape,
+    read_past_event_blocks,
+    stable_uid_for,
+)
+from spond_i18n import STATUS_EMOJI, TRANSLATIONS_DIR, load_translations
 
 DEFAULT_TIMEZONE = "Europe/Oslo"
-
-STATUS_EMOJI = {
-    "accepted": "✓",
-    "declined": "✗",
-    "unanswered": "?",
-    "waitinglist": "…",
-    "unknown": "·",
-    "cancelled": "🚫",
-}
-
-TRANSLATIONS_DIR = Path(__file__).parent / "translations"
-
-
-def _load_translations(strings_dir: Path, lang: str) -> tuple[dict, str]:
-    """Load the translations JSON file for `lang`.
-
-    Returns (data, resolved_lang). Falls back through:
-      lang -> language-base (strip region) -> en.
-    The legacy code "no" is mapped to "nb" (Bokmål) for BCP-47 compliance.
-    """
-    if lang == "no":
-        lang = "nb"
-    chain: list[str] = [lang]
-    if "-" in lang:
-        chain.append(lang.split("-", 1)[0])
-    if "en" not in chain:
-        chain.append("en")
-    for code in chain:
-        path = strings_dir / f"{code}.json"
-        if path.exists():
-            return json.loads(path.read_text()), code
-    return {}, "en"
-
-
-def fmt_dt(iso_str: str) -> str:
-    """ISO timestamp -> YYYYMMDDTHHMMSSZ for ICS."""
-    dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-    dt_utc = dt.astimezone(UTC)
-    return dt_utc.strftime("%Y%m%dT%H%M%SZ")
-
-
-def event_fingerprint(e: dict) -> dict:
-    """Subset of event fields for change detection."""
-    my_task_names = tuple(
-        sorted(t.get("name") if isinstance(t, dict) else t for t in (e.get("my_tasks") or []))
-    )
-    all_task_names = tuple(
-        sorted(
-            f"{t.get('name')}:{len(t.get('assigned') or [])}/{t.get('required', 0)}"
-            if isinstance(t, dict)
-            else t
-            for t in (e.get("all_tasks") or [])
-        )
-    )
-    return {
-        "title": e.get("title"),
-        "start": e.get("start"),
-        "end": e.get("end"),
-        "location": e.get("location"),
-        "status": e.get("status"),
-        "my_tasks": my_task_names,
-        "all_tasks": all_task_names,
-        "open_tasks_count": e.get("open_tasks_count", 0),
-    }
-
-
-def stable_uid_for(spond_uid: str, canonical: str) -> str:
-    h = hashlib.md5(f"{spond_uid}-{canonical}".encode()).hexdigest()
-    return f"{h}@spond-sync.local"
-
-
-def read_past_event_blocks(ics_path: str, now_utc: datetime, current_uids: set[str]) -> list[str]:
-    """Return VEVENT blocks from existing ICS for events with DTSTART < now
-    that are NOT in current_uids (Spond no longer returns them -> preserve
-    them as history).
-    """
-    try:
-        content = Path(ics_path).read_text()
-    except FileNotFoundError:
-        return []
-    past_blocks = []
-    blocks = re.findall(r"BEGIN:VEVENT.*?END:VEVENT", content, re.DOTALL)
-    for block in blocks:
-        dt_match = re.search(r"DTSTART[^:]*:(\d{8})(?:T(\d{6})Z?)?", block)
-        uid_match = re.search(r"UID:([^\r\n]+)", block)
-        if not dt_match:
-            continue
-        date_str = dt_match.group(1)
-        time_str = dt_match.group(2) or "000000"
-        try:
-            dt = datetime.strptime(f"{date_str}{time_str}", "%Y%m%d%H%M%S").replace(tzinfo=UTC)
-        except ValueError:
-            continue
-        if dt >= now_utc:
-            continue
-        uid = uid_match.group(1).strip() if uid_match else None
-        if uid and uid in current_uids:
-            continue
-        past_blocks.append(block.strip())
-    return past_blocks
-
-
-def ics_escape(s: str | None) -> str:
-    if s is None:
-        return ""
-    return s.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;").replace("\n", "\\n")
 
 
 class SpondTracker(hass.Hass):
@@ -153,7 +52,7 @@ class SpondTracker(hass.Hass):
                 "language='no' is deprecated; use 'nb' (Bokmål) instead. Continuing with 'nb'.",
                 level="WARNING",
             )
-        self.strings, self.lang = _load_translations(TRANSLATIONS_DIR, requested_lang)
+        self.strings, self.lang = load_translations(TRANSLATIONS_DIR, requested_lang)
         if self.lang != ("nb" if requested_lang == "no" else requested_lang):
             self.log(
                 f"Unknown language {requested_lang!r}, fell back to {self.lang!r}",
@@ -492,8 +391,7 @@ class SpondTracker(hass.Hass):
                         lines.append(f"  • {t['name']} [{status_str}]{adults}{names}")
                     desc_parts.append("\n".join(lines))
                 description = "\n".join(desc_parts)
-                stable_uid = hashlib.md5(f"{e['uid']}-{canonical}".encode()).hexdigest()
-                uid = f"{stable_uid}@spond-sync.local"
+                uid = stable_uid_for(e["uid"], canonical)
                 ics_lines.extend(
                     [
                         "BEGIN:VEVENT",
