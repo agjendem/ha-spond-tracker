@@ -1,5 +1,11 @@
 # Spond Tracker for Home Assistant (AppDaemon)
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![Latest release](https://img.shields.io/github/v/release/agjendem/ha-spond-tracker?display_name=tag&sort=semver)](https://github.com/agjendem/ha-spond-tracker/releases)
+[![Validate](https://github.com/agjendem/ha-spond-tracker/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/agjendem/ha-spond-tracker/actions/workflows/validate.yml)
+[![Lint](https://github.com/agjendem/ha-spond-tracker/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/agjendem/ha-spond-tracker/actions/workflows/lint.yml)
+[![License: MIT](https://img.shields.io/github/license/agjendem/ha-spond-tracker)](./LICENSE)
+
 An [AppDaemon](https://appdaemon.readthedocs.io/) app that syncs
 [Spond](https://www.spond.com/) events and tasks into Home Assistant —
 one local calendar per tracked member, plus per-member sensors and
