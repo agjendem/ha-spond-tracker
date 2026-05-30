@@ -81,4 +81,21 @@ jobs:
         with:
           python-version: "3.11"
       - name: py_compile
-        run: python -m py_compile apps/spond_tracker/spond_tracker.py
+        run: |
+          for f in apps/spond_tracker/*.py; do
+            python -m py_compile "$f"
+          done
+
+  pytest:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+      - name: pytest
+        run: pytest
