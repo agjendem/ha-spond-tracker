@@ -15,5 +15,11 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v5.0.0
         with:
+          # Use a PAT (not GITHUB_TOKEN) so that the push to the release
+          # branch triggers our other workflows (Lint, Validate). With
+          # GITHUB_TOKEN, GitHub deliberately suppresses workflow runs to
+          # prevent infinite loops, but that also breaks branch protection
+          # since required checks never report.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
