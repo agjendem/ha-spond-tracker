@@ -19,6 +19,12 @@ spond_tracker:
   # are always English.
   language: en
 
+  # IANA timezone for "today" cutoffs and the poll schedule. Default
+  # Europe/Oslo. An invalid name logs a WARNING and falls back to the
+  # default at startup. Keep this in sync with `time_zone` in the
+  # AppDaemon add-on's `appdaemon.yaml`.
+  timezone: Europe/Oslo
+
   # One entry per Spond account you log in with. The app aggregates events
   # from all accounts and de-duplicates per tracked member, so it is safe
   # for multiple accounts to have overlapping group visibility.

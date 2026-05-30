@@ -10,7 +10,8 @@ Sensors created per member:
   sensor.spond_<canonical>        - state = number of events today
   sensor.spond_<canonical>_tasks  - state = number of tasks assigned to me
 
-Polling: hourly 06-14, every 30 min 15-22:30, idle 23-06.
+Polling: hourly 06-14, every 30 min 15-22:30, idle 23-06 (the schedule
+follows the configured `timezone`, default Europe/Oslo).
 
 Localization
 ------------
@@ -28,17 +29,12 @@ import re
 import traceback
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import appdaemon.plugins.hass.hassapi as hass
-
-try:
-    from zoneinfo import ZoneInfo
-
-    TZ = ZoneInfo("Europe/Oslo")
-except ImportError:
-    TZ = None
-
 from spond import spond as spond_lib
+
+DEFAULT_TIMEZONE = "Europe/Oslo"
 
 STATUS_EMOJI = {
     "accepted": "✓",
@@ -163,6 +159,15 @@ class SpondTracker(hass.Hass):
                 f"Unknown language {requested_lang!r}, fell back to {self.lang!r}",
                 level="WARNING",
             )
+        tz_name = self.args.get("timezone", DEFAULT_TIMEZONE)
+        try:
+            self.tz = ZoneInfo(tz_name)
+        except ZoneInfoNotFoundError:
+            self.log(
+                f"Invalid timezone {tz_name!r}, falling back to {DEFAULT_TIMEZONE!r}",
+                level="WARNING",
+            )
+            self.tz = ZoneInfo(DEFAULT_TIMEZONE)
         # Per-member dict[uid -> fingerprint] from the previous poll, used
         # for change detection between polls.
         self.previous_state = None
@@ -182,7 +187,7 @@ class SpondTracker(hass.Hass):
         self.log(
             f"SpondTracker init: {len(self.accounts)} account(s), "
             f"{len(self.members)} member(s), 25 daily poll times, "
-            f"language={self.lang}"
+            f"language={self.lang}, timezone={tz_name}"
         )
 
     def t(self, key: str, **fmt: object) -> str:
@@ -203,7 +208,7 @@ class SpondTracker(hass.Hass):
         return cur.format(**fmt) if fmt else cur
 
     async def poll_callback(self, kwargs: dict) -> None:
-        now_local = datetime.now(TZ) if TZ else datetime.now()
+        now_local = datetime.now(self.tz)
         self.log(f"Spond: polling at {now_local.strftime('%H:%M')}")
         try:
             await self.fetch_and_update()
@@ -396,7 +401,7 @@ class SpondTracker(hass.Hass):
                         }
                     )
 
-        now_local = datetime.now(TZ) if TZ else datetime.now()
+        now_local = datetime.now(self.tz)
         today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
         dtstamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -587,8 +592,7 @@ class SpondTracker(hass.Hass):
                     continue  # do not count cancelled or declined events
                 try:
                     dt = datetime.fromisoformat((e.get("start") or "").replace("Z", "+00:00"))
-                    if TZ:
-                        dt = dt.astimezone(TZ)
+                    dt = dt.astimezone(self.tz)
                     if today_start <= dt < today_end:
                         today.append(e)
                 except Exception:

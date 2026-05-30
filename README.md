@@ -102,6 +102,7 @@ spond_tracker:
   module: spond_tracker
   class: SpondTracker
   language: en          # en (default) | nb
+  timezone: Europe/Oslo # default; any IANA tz works (UTC, America/Los_Angeles, ...)
   accounts:
     - name: AccountA
       username: !secret spond_account_a_username
@@ -137,6 +138,7 @@ then calls `homeassistant.reload_config_entry` to make HA re-read it.
 | Field              | Required | Description                                                                                                                    |
 | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `language`         | no       | `en` (default) or `nb` (Norwegian Bokmål). The legacy code `no` is accepted as an alias for `nb`. Controls calendar SUMMARY/DESCRIPTION text and sensor friendly names. Logs stay English. |
+| `timezone`         | no       | IANA timezone name (e.g. `Europe/Oslo`, `America/Los_Angeles`, `UTC`). Default `Europe/Oslo`. Controls "today" cutoffs and the poll-schedule clock. Invalid names log a WARNING and fall back to the default. |
 | `accounts[].name`  | yes      | Free-text label, used in logs.                                                                                                 |
 | `accounts[].username` / `password` | yes | Spond credentials. **Reference via `!secret`** — never inline.                                                  |
 | `members[].canonical` | yes   | Lowercase first name. Matched against the first word of Spond's `firstName` on memberships you can respond on-behalf-of.       |
@@ -227,10 +229,26 @@ Log messages are always English and not localized.
 
 ## Timezone
 
-The app currently assumes `Europe/Oslo` (hard-coded). If you're in
-another timezone, change `TZ = ZoneInfo("Europe/Oslo")` at the top of
-`spond_tracker.py`. Making this configurable via apps.yaml is on the
-roadmap.
+The app uses the timezone configured in apps.yaml to decide the cutoff
+between today and tomorrow (for `today_count` on the events sensor) and
+to compute the local time the poll schedule fires at. ICS output is
+always written in UTC per the calendar spec.
+
+```yaml
+spond_tracker:
+  ...
+  timezone: Europe/Oslo   # default if omitted
+```
+
+Any IANA timezone string works (`UTC`, `America/Los_Angeles`,
+`Asia/Tokyo`, ...). An invalid name logs a WARNING at startup and falls
+back to `Europe/Oslo` so the app still starts.
+
+Note that the AppDaemon add-on also has its own `time_zone` setting in
+`appdaemon.yaml`. Both are useful: the add-on setting controls
+AppDaemon's internal scheduler reference, while this `timezone:` field
+controls how `spond_tracker` interprets dates. Keep them in sync for
+predictable behavior.
 
 ## Migrating from earlier versions
 

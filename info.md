@@ -25,6 +25,7 @@ per-member sensors and event-bus integration for automations.
      module: spond_tracker
      class: SpondTracker
      language: en          # en (default) | nb
+     timezone: Europe/Oslo # default; any IANA tz string works
      accounts:
        - name: AccountA
          username: !secret spond_account_a_username
