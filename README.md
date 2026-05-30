@@ -303,9 +303,15 @@ python -m py_compile apps/spond_tracker/spond_tracker.py
 ```
 
 Bumping a runtime dep (e.g. `spond`): update `requirements.txt`,
-`README.md`, `info.md`, and add a `CHANGELOG.md` entry under
-`## [Unreleased]`. Bumping a dev dep: update `requirements-dev.txt` and
-both workflow files under `.github/workflows/`.
+`README.md`, and `info.md` in a commit prefixed `deps:`. Bumping a dev
+dep: update `requirements-dev.txt` and the workflow files, prefixed
+`build:` or `ci:`.
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/);
+[`release-please`](https://github.com/googleapis/release-please) handles
+version bumps, `CHANGELOG.md`, and GitHub releases automatically when
+the release PR it opens is merged. See
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the full guide.
 
 ## License
 
