@@ -1,0 +1,41 @@
+version: 2
+updates:
+  # Runtime + dev Python dependencies (requirements*.txt). Grouped into a
+  # single weekly PR. Commit prefix `deps:` triggers a patch release via
+  # release-please when merged.
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Oslo
+    groups:
+      pip-deps:
+        patterns: ["*"]
+    commit-message:
+      prefix: deps
+    labels:
+      - dependencies
+      - python
+    open-pull-requests-limit: 5
+
+  # GitHub Actions versions in .github/workflows/*.yml. Grouped weekly.
+  # Commit prefix `ci:` keeps these out of the user-facing CHANGELOG and
+  # does not trigger a release.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Oslo
+    groups:
+      gha-deps:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
+      - github-actions
+    open-pull-requests-limit: 5
