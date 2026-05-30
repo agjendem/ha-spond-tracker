@@ -10,6 +10,8 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Oslo
+    cooldown:
+      default-days: 7
     groups:
       pip-deps:
         patterns: ["*"]
@@ -30,6 +32,8 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Oslo
+    cooldown:
+      default-days: 7
     groups:
       gha-deps:
         patterns: ["*"]
