@@ -95,7 +95,9 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Install dev dependencies
-        run: pip install -r requirements-dev.txt
+      - name: Install runtime + dev dependencies
+        # Runtime deps are needed because the tests import the modules
+        # under test, which `from croniter import croniter` etc.
+        run: pip install -r requirements.txt -r requirements-dev.txt
       - name: pytest
         run: pytest
