@@ -9,3 +9,4 @@
 # bump the version here, the README, info.md, and add a CHANGELOG entry.
 
 spond==1.2.1
+croniter==6.2.2

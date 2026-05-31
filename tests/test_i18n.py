@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from spond_i18n import STATUS_EMOJI, TRANSLATIONS_DIR, load_translations
+from spond_i18n import STATUS_EMOJI, TASK_MARKER, TRANSLATIONS_DIR, load_translations
 
 
 class TestLoadTranslations:
@@ -56,6 +56,9 @@ class TestStatusEmoji:
     def test_every_known_status_has_emoji(self, status: str) -> None:
         assert status in STATUS_EMOJI
         assert len(STATUS_EMOJI[status]) >= 1
+
+    def test_task_marker_is_non_empty(self) -> None:
+        assert TASK_MARKER and len(TASK_MARKER) >= 1
 
 
 class TestTranslationParity:

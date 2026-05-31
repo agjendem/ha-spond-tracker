@@ -31,15 +31,25 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import appdaemon.plugins.hass.hassapi as hass
 from spond import spond as spond_lib
 from spond_helpers import (
+    cron_to_daily_times,
     event_fingerprint,
     fmt_dt,
     ics_escape,
     read_past_event_blocks,
     stable_uid_for,
 )
-from spond_i18n import STATUS_EMOJI, TRANSLATIONS_DIR, load_translations
+from spond_i18n import STATUS_EMOJI, TASK_MARKER, TRANSLATIONS_DIR, load_translations
 
 DEFAULT_TIMEZONE = "Europe/Oslo"
+
+# Default polling cadence: hourly during the daytime window, every 30
+# minutes in the afternoon/evening, idle overnight (23-06). The split
+# matches what Spond actually publishes — most clubs post and accept
+# new events during waking hours.
+DEFAULT_POLL_SCHEDULES = (
+    "0 6-14 * * *",  # every hour 06-14
+    "0,30 15-22 * * *",  # every 30 min 15-22:30
+)
 
 
 class SpondTracker(hass.Hass):
@@ -73,19 +83,32 @@ class SpondTracker(hass.Hass):
         if not self.accounts or not self.members:
             self.log("No accounts/members configured", level="ERROR")
             return
-        # Initial fetch in 10 seconds
+        # Initial fetch in 10 seconds.
         self.run_in(self.poll_callback, 10)
-        # Hourly 06-14 (9 polls)
-        for h in range(6, 15):
-            self.run_daily(self.poll_callback, f"{h:02d}:00:00")
-        # Every 30 min 15:00 - 22:30 (16 polls)
-        for h in range(15, 23):
-            self.run_daily(self.poll_callback, f"{h:02d}:00:00")
-            self.run_daily(self.poll_callback, f"{h:02d}:30:00")
-        # No polling 23-06 (quiet hours)
+        # Expand the configured cron schedules to a deduplicated set of
+        # (hour, minute) pairs and register one run_daily per pair.
+        configured = self.args.get("poll_schedules") or list(DEFAULT_POLL_SCHEDULES)
+        all_times: set[tuple[int, int]] = set()
+        for cron in configured:
+            try:
+                all_times |= cron_to_daily_times(cron)
+            except ValueError as e:
+                self.log(
+                    f"Invalid poll_schedules entry {cron!r}: {e}; skipping",
+                    level="WARNING",
+                )
+        if not all_times:
+            self.log(
+                "No valid poll schedules configured; falling back to defaults",
+                level="WARNING",
+            )
+            for cron in DEFAULT_POLL_SCHEDULES:
+                all_times |= cron_to_daily_times(cron)
+        for h, m in sorted(all_times):
+            self.run_daily(self.poll_callback, f"{h:02d}:{m:02d}:00")
         self.log(
             f"SpondTracker init: {len(self.accounts)} account(s), "
-            f"{len(self.members)} member(s), 25 daily poll times, "
+            f"{len(self.members)} member(s), {len(all_times)} poll times/day, "
             f"language={self.lang}, timezone={tz_name}"
         )
 
@@ -417,9 +440,13 @@ class SpondTracker(hass.Hass):
                 except Exception:
                     continue
                 cancelled_prefix = (
-                    f"🚫 {self.t('calendar.cancelled_prefix')}" if t.get("cancelled") else ""
+                    f"{STATUS_EMOJI['cancelled']} {self.t('calendar.cancelled_prefix')}"
+                    if t.get("cancelled")
+                    else ""
                 )
-                task_summary = f"📋 {cancelled_prefix}{t['task_name']} — {t['event_title']}"
+                task_summary = (
+                    f"{TASK_MARKER} {cancelled_prefix}{t['task_name']} — {t['event_title']}"
+                )
                 task_desc_parts = [
                     f"{self.t('calendar.task_for')} "
                     f"{mem_cfg.get('display_name', canonical.title())}",

@@ -26,6 +26,9 @@ per-member sensors and event-bus integration for automations.
      class: SpondTracker
      language: en          # en (default) | nb
      timezone: Europe/Oslo # default; any IANA tz string works
+     poll_schedules:       # default keeps the API quiet 23-06
+       - "0 6-14 * * *"
+       - "0,30 15-22 * * *"
      accounts:
        - name: AccountA
          username: !secret spond_account_a_username

@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 from spond_helpers import (
+    cron_to_daily_times,
     event_fingerprint,
     fmt_dt,
     ics_escape,
@@ -199,3 +200,58 @@ class TestReadPastEventBlocks:
         ics = self._make_ics(tmp_path, [vevent])
         result = read_past_event_blocks(ics, datetime.now(UTC), current_uids=set())
         assert result == []
+
+
+class TestCronToDailyTimes:
+    def test_every_hour(self) -> None:
+        times = cron_to_daily_times("0 * * * *")
+        assert len(times) == 24
+        assert (0, 0) in times
+        assert (23, 0) in times
+
+    def test_hourly_within_window(self) -> None:
+        times = cron_to_daily_times("0 6-14 * * *")
+        assert times == {(h, 0) for h in range(6, 15)}
+        assert len(times) == 9
+
+    def test_half_hourly_within_window(self) -> None:
+        times = cron_to_daily_times("0,30 15-22 * * *")
+        # 15:00, 15:30, ..., 22:30 -> 16 times
+        assert len(times) == 16
+        assert (15, 0) in times
+        assert (22, 30) in times
+        assert (23, 0) not in times
+
+    def test_minute_step(self) -> None:
+        times = cron_to_daily_times("*/15 9-10 * * *")
+        # 9:00, 9:15, 9:30, 9:45, 10:00, 10:15, 10:30, 10:45 -> 8 times
+        assert len(times) == 8
+        assert (9, 45) in times
+        assert (10, 45) in times
+
+    def test_defaults_match_original_hardcoded_count(self) -> None:
+        # Sanity check that the new default schedules expand to the same
+        # 25-times-per-day cadence the old hardcoded loop did.
+        hourly = cron_to_daily_times("0 6-14 * * *")
+        half = cron_to_daily_times("0,30 15-22 * * *")
+        assert len(hourly | half) == 25
+
+    def test_wrong_field_count_rejected(self) -> None:
+        with pytest.raises(ValueError, match="must have 5 fields"):
+            cron_to_daily_times("0 6 * *")  # only 4
+
+    def test_day_of_week_rejected(self) -> None:
+        with pytest.raises(ValueError, match="day-of-month, month, and day-of-week"):
+            cron_to_daily_times("0 8 * * 1-5")
+
+    def test_day_of_month_rejected(self) -> None:
+        with pytest.raises(ValueError, match="day-of-month, month, and day-of-week"):
+            cron_to_daily_times("0 8 1 * *")
+
+    def test_month_rejected(self) -> None:
+        with pytest.raises(ValueError, match="day-of-month, month, and day-of-week"):
+            cron_to_daily_times("0 8 * 6 *")
+
+    def test_invalid_minute_field_rejected(self) -> None:
+        with pytest.raises(ValueError, match="invalid cron expression"):
+            cron_to_daily_times("99 * * * *")

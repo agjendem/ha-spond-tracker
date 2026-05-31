@@ -145,6 +145,7 @@ then calls `homeassistant.reload_config_entry` to make HA re-read it.
 | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `language`         | no       | `en` (default) or `nb` (Norwegian Bokmål). The legacy code `no` is accepted as an alias for `nb`. Controls calendar SUMMARY/DESCRIPTION text and sensor friendly names. Logs stay English. |
 | `timezone`         | no       | IANA timezone name (e.g. `Europe/Oslo`, `America/Los_Angeles`, `UTC`). Default `Europe/Oslo`. Controls "today" cutoffs and the poll-schedule clock. Invalid names log a WARNING and fall back to the default. |
+| `poll_schedules`   | no       | List of 5-field cron expressions (`m h dom mon dow`) controlling when polls fire, evaluated in `timezone`. Default `["0 6-14 * * *", "0,30 15-22 * * *"]` — hourly 06–14, every 30 min 15–22:30, no polling overnight. Only the minute and hour fields are honoured; dom/mon/dow must be `*`. Invalid entries log WARNING and are skipped. |
 | `accounts[].name`  | yes      | Free-text label, used in logs.                                                                                                 |
 | `accounts[].username` / `password` | yes | Spond credentials. **Reference via `!secret`** — never inline.                                                  |
 | `members[].canonical` | yes   | Lowercase first name. Matched against the first word of Spond's `firstName` on memberships you can respond on-behalf-of.       |
@@ -200,14 +201,38 @@ action:
 
 ## Polling schedule
 
-Hard-coded in `initialize()`:
+Polling is driven by one or more cron expressions in `apps.yaml` and
+fires in the configured `timezone`. The default keeps the API quiet
+overnight (no polls 23–06):
 
-- **06:00–14:00**: every full hour
-- **15:00–22:30**: every full and half hour
-- **23:00–06:00**: idle
+```yaml
+spond_tracker:
+  ...
+  poll_schedules:
+    - "0 6-14 * * *"      # every hour 06-14
+    - "0,30 15-22 * * *"  # every 30 min 15-22:30
+```
 
-To change, edit `initialize()` in `spond_tracker.py`. Spond's API is
-not rate-limited aggressively but be a good citizen.
+Any number of cron expressions can be combined; duplicate times are
+deduplicated. **Only intraday schedules are supported** — the
+day-of-month, month, and day-of-week fields must all be `*`. The
+restriction keeps the model predictable; if you need weekday-only
+polling, drive it via a HA automation instead of from here.
+
+Examples:
+
+```yaml
+# Aggressive: every 10 minutes, all day:
+poll_schedules: ["*/10 * * * *"]
+
+# Conservative: just morning and evening:
+poll_schedules: ["0 8 * * *", "0 18 * * *"]
+```
+
+Invalid entries log a WARNING and are skipped. If every configured
+entry is invalid, the defaults are used so polling never stops
+silently. Spond's API is not aggressively rate-limited, but be a
+good citizen.
 
 ## Localization
 

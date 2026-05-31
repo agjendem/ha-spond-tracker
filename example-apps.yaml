@@ -25,6 +25,18 @@ spond_tracker:
   # AppDaemon add-on's `appdaemon.yaml`.
   timezone: Europe/Oslo
 
+  # When to poll Spond, in `timezone`. Each entry is a 5-field cron
+  # expression (`m h dom mon dow`). Only the minute and hour fields are
+  # honoured; dom/mon/dow must be `*`. Multiple entries are deduplicated.
+  # Invalid entries log WARNING and are skipped; if all are invalid the
+  # defaults below are used. Defaults (omit this field to accept):
+  #   - hourly 06-14
+  #   - every 30 min 15-22:30
+  #   - idle overnight 23-06
+  poll_schedules:
+    - "0 6-14 * * *"
+    - "0,30 15-22 * * *"
+
   # One entry per Spond account you log in with. The app aggregates events
   # from all accounts and de-duplicates per tracked member, so it is safe
   # for multiple accounts to have overlapping group visibility.

@@ -8,8 +8,10 @@ which only reads from disk.
 
 import hashlib
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+from croniter import croniter
 
 
 def fmt_dt(iso_str: str) -> str:
@@ -84,3 +86,43 @@ def ics_escape(s: str | None) -> str:
     if s is None:
         return ""
     return s.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;").replace("\n", "\\n")
+
+
+def cron_to_daily_times(cron_expr: str) -> set[tuple[int, int]]:
+    """Expand a 5-field cron expression to {(hour, minute), ...} pairs.
+
+    Only intraday schedules are supported: the day-of-month, month, and
+    day-of-week fields must all be `*`. This keeps the scheduling model
+    simple — AppDaemon's run_daily fires at the same time every day,
+    and applying date-based filtering would need a different mechanism
+    that callers should add explicitly.
+
+    Raises ValueError on:
+      - Wrong number of fields.
+      - Any of dom/mon/dow being something other than `*`.
+      - An expression croniter can't parse.
+    """
+    parts = cron_expr.split()
+    if len(parts) != 5:
+        raise ValueError(
+            f"cron must have 5 fields (m h dom mon dow), got {len(parts)}: {cron_expr!r}"
+        )
+    _minute, _hour, dom, mon, dow = parts
+    if dom != "*" or mon != "*" or dow != "*":
+        raise ValueError(
+            f"day-of-month, month, and day-of-week must be '*' "
+            f"(got dom={dom!r} mon={mon!r} dow={dow!r}); only intraday schedules are supported"
+        )
+    base = datetime(2026, 1, 1, 0, 0, 0)
+    try:
+        itr = croniter(cron_expr, base - timedelta(seconds=1))
+    except Exception as e:
+        raise ValueError(f"invalid cron expression {cron_expr!r}: {e}") from e
+    end = base + timedelta(days=1)
+    times: set[tuple[int, int]] = set()
+    while True:
+        fire = itr.get_next(datetime)
+        if fire >= end:
+            break
+        times.add((fire.hour, fire.minute))
+    return times
