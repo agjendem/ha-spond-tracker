@@ -281,6 +281,52 @@ AppDaemon's internal scheduler reference, while this `timezone:` field
 controls how `spond_tracker` interprets dates. Keep them in sync for
 predictable behavior.
 
+## Automation blueprints
+
+The repo ships four [Home Assistant
+blueprints](https://www.home-assistant.io/docs/automation/using_blueprints/)
+that turn the event-bus events into mobile notifications without you
+writing automation YAML. Import the ones you need — each blueprint can
+be instantiated multiple times (one per tracked member).
+
+| Blueprint | What it does | Triggered by |
+| --- | --- | --- |
+| **Spond: notify on new task** | Mobile notification the moment Spond Tracker assigns a new task to a member. | `spond_task_assigned` |
+| **Spond: notify on event cancellation** | Mobile notification when an event flips to cancelled. | `spond_event_cancelled` |
+| **Spond: notify on event change** | Mobile notification when start/end/location/title changes (configurable field set). | `spond_event_changed` |
+| **Spond: remind before task** | Calendar-driven reminder N minutes before a task (defaults to 60). Filters on the `📋` prefix Spond Tracker uses for task VEVENTs. | `calendar` start trigger |
+
+All blueprints share the same notification convention: the message
+carries a `tag` derived from the event/task UID so re-emissions replace
+the previous notification on the phone, and all use `group: "Spond"` so
+notifications cluster on the device.
+
+### Importing
+
+Click the badge for the blueprint you want (uses
+[my.home-assistant.io](https://my.home-assistant.io/)) and Home
+Assistant will open the import dialog:
+
+[![Import: new task](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_new_task.yaml) **new task**
+
+[![Import: event cancelled](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_event_cancelled.yaml) **event cancelled**
+
+[![Import: event changed](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_event_changed.yaml) **event changed**
+
+[![Import: task reminder](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_task_reminder.yaml) **task reminder**
+
+Or manually: Settings → Automations & Scenes → Blueprints → Import
+Blueprint → paste the raw GitHub URL of the blueprint, e.g.
+`https://github.com/agjendem/ha-spond-tracker/blob/main/blueprints/automation/spond_new_task.yaml`.
+
+### Common inputs
+
+| Input | Notes |
+| --- | --- |
+| **Tracked member** | The `canonical` slug from your `apps.yaml`. Filters which member's events the automation reacts to. |
+| **Notification target** | A `notify` domain entity that points at the device. The modern HA companion app registers itself as `notify.<device_name>`. |
+| **Notification title** / **message** | Both are templatable. Defaults are in English; localize freely. The message template has access to `trigger.event.data.*` (or `trigger.calendar_event.*` for the reminder). |
+
 ## Migrating from earlier versions
 
 ### `_oppgaver` → `_tasks` (entity_id rename)

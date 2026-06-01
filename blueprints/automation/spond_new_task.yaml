@@ -1,0 +1,63 @@
+blueprint:
+  name: "Spond: notify on new task"
+  description: >
+    Send a notification when Spond Tracker fires a `spond_task_assigned`
+    event for the chosen tracked member. The notification carries a
+    `tag` derived from the event UID so a re-emitted notification for
+    the same task replaces the previous one on the device. All
+    Spond-related notifications share `group: Spond` for clustering on
+    the HA companion app.
+  domain: automation
+  source_url: https://github.com/agjendem/ha-spond-tracker/blob/main/blueprints/automation/spond_new_task.yaml
+  input:
+    member:
+      name: Tracked member
+      description: >
+        The `canonical` slug from your `apps.yaml` (lowercase first
+        name — e.g. `alice`). The blueprint only fires for this
+        member's task events.
+      selector:
+        text: {}
+    notify_target:
+      name: Notification target
+      description: >
+        A `notify` domain entity that points at the device to notify.
+        The HA companion app exposes itself as `notify.<device_name>`.
+      selector:
+        entity:
+          domain: notify
+    notification_title:
+      name: Notification title
+      default: "📋 New Spond task"
+      selector:
+        text: {}
+    notification_message:
+      name: Notification message
+      description: >
+        Jinja template. Available variables: `trigger.event.data.task`,
+        `.title`, `.start`, `.uid`.
+      default: |-
+        {% set dt = trigger.event.data.start | as_datetime | as_local %}
+        {{ trigger.event.data.task }} on {{ trigger.event.data.title }} ({{ dt.strftime('%a %d.%m at %H:%M') }})
+      selector:
+        text:
+          multiline: true
+
+mode: single
+
+trigger:
+  - platform: event
+    event_type: spond_task_assigned
+    event_data:
+      member: !input member
+
+action:
+  - service: notify.send_message
+    target:
+      entity_id: !input notify_target
+    data:
+      title: !input notification_title
+      message: !input notification_message
+      data:
+        tag: "spond_task_{{ trigger.event.data.uid }}"
+        group: "Spond"

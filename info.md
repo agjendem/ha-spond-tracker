@@ -44,6 +44,15 @@ See the [full README](https://github.com/agjendem/ha-spond-tracker#readme)
 for configuration reference, event-bus payloads, troubleshooting, and
 migration notes.
 
+## Notifications without writing YAML
+
+The repo ships [automation
+blueprints](https://github.com/agjendem/ha-spond-tracker#automation-blueprints)
+that turn the event-bus events into mobile notifications via point-and-
+click setup. One blueprint per notification kind (new task / event
+cancelled / event changed / task reminder), instantiate once per
+tracked member.
+
 ## Localization
 
 User-facing text (calendar SUMMARY/DESCRIPTION and sensor friendly_name)

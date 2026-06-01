@@ -1,0 +1,75 @@
+blueprint:
+  name: "Spond: remind before task"
+  description: >
+    Send a reminder N minutes before a task on the configured Spond
+    Tracker calendar starts. Task VEVENTs in the calendar are prefixed
+    with `📋` — the automation's condition filters on that prefix so
+    regular events don't fire the reminder.
+
+    Pair this with the per-member calendar created by Spond Tracker
+    (e.g. `calendar.spond_alice`).
+  domain: automation
+  source_url: https://github.com/agjendem/ha-spond-tracker/blob/main/blueprints/automation/spond_task_reminder.yaml
+  input:
+    calendar_entity:
+      name: Member calendar
+      description: >
+        The `local_calendar` entity that Spond Tracker writes to for
+        this member (e.g. `calendar.spond_alice`).
+      selector:
+        entity:
+          domain: calendar
+    offset_minutes:
+      name: Minutes before
+      description: How far ahead to fire the reminder.
+      default: 60
+      selector:
+        number:
+          min: 5
+          max: 1440
+          step: 5
+          unit_of_measurement: min
+    notify_target:
+      name: Notification target
+      selector:
+        entity:
+          domain: notify
+    notification_title:
+      name: Notification title
+      default: "📋 Spond reminder"
+      selector:
+        text: {}
+    notification_message:
+      name: Notification message
+      description: >
+        Jinja template. Available variables: `trigger.calendar_event.summary`,
+        `.location`, `.uid`, `.start`.
+      default: |-
+        {{ trigger.calendar_event.summary }}{% if trigger.calendar_event.location %}
+        At: {{ trigger.calendar_event.location }}{% endif %}
+      selector:
+        text:
+          multiline: true
+
+mode: single
+
+trigger:
+  - platform: calendar
+    event: start
+    entity_id: !input calendar_entity
+    offset: !input offset_minutes
+
+condition:
+  - condition: template
+    value_template: "{{ trigger.calendar_event.summary.startswith('📋') }}"
+
+action:
+  - service: notify.send_message
+    target:
+      entity_id: !input notify_target
+    data:
+      title: !input notification_title
+      message: !input notification_message
+      data:
+        tag: "spond_reminder_{{ trigger.calendar_event.uid }}"
+        group: "Spond"
