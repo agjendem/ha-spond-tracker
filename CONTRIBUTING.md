@@ -68,6 +68,28 @@ python -m py_compile apps/spond_tracker/spond_tracker.py
 
 See [README.md → Development](./README.md#development) for venv setup.
 
+## Pre-commit hooks
+
+The repo ships a [`.pre-commit-config.yaml`](./.pre-commit-config.yaml)
+with two hooks:
+
+- **ruff** (check + format) — same versions CI uses; runs on staged
+  files at commit time.
+- **conventional-pre-commit** — rejects commit messages that don't match
+  the prefixes above; runs at `commit-msg` stage.
+
+Install once after cloning:
+
+```bash
+pip install -r requirements-dev.txt
+pre-commit install --install-hooks
+pre-commit install --hook-type commit-msg
+```
+
+PRs from contributors who skip this step are still safe: the hosted
+[`pre-commit.ci`](https://pre-commit.ci/) service runs the ruff hooks
+on every PR and pushes an auto-fix commit if needed.
+
 ## Adding a translation
 
 1. Copy `apps/spond_tracker/translations/en.json` to a new file named

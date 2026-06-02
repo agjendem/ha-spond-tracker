@@ -1,0 +1,12 @@
+# Config for the pre-commit.ci hosted service (free for public repos).
+# When enabled at https://pre-commit.ci, it runs the hooks on every PR
+# and pushes a fix-up commit if anything is auto-fixable.
+ci:
+  autofix_prs: true
+  autoupdate_schedule: monthly
+  autoupdate_commit_msg: "ci: pre-commit autoupdate"
+  autofix_commit_msg: "ci: pre-commit auto-fixes"
+  skip:
+    # conventional-pre-commit only runs at commit-msg stage, which the
+    # hosted service does not exercise.
+    - conventional-pre-commit
