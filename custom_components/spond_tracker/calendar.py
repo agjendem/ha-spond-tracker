@@ -14,7 +14,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import CONF_MEMBERS
 from .coordinator import SpondDataUpdateCoordinator
 from .spond_helpers import stable_uid_for
-from .spond_i18n import STATUS_EMOJI, TASK_MARKER, TRANSLATIONS_DIR, load_translations
+from .spond_i18n import STATUS_EMOJI, TASK_MARKER
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,8 +44,7 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
         self._attr_name = member_cfg["display_name"]
 
     def _t(self, key: str, **fmt: object) -> str:
-        strings, _ = load_translations(TRANSLATIONS_DIR, self.coordinator.language)
-        cur: object = strings
+        cur: object = self.coordinator.strings
         for part in key.split("."):
             if not isinstance(cur, dict):
                 return key

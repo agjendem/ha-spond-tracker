@@ -21,6 +21,7 @@ from .const import (
     DOMAIN,
 )
 from .spond_helpers import event_fingerprint, process_raw_events
+from .spond_i18n import TRANSLATIONS_DIR, load_translations
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,10 +50,21 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
         self.entry = entry
         self._previous_fingerprints: dict[str, dict[str, dict]] = {}
+        self.strings: dict = {}
+        self._strings_lang: str = ""
 
     @property
     def language(self) -> str:
         return self.hass.config.language
+
+    async def _load_strings(self) -> None:
+        lang = self.language
+        if lang != self._strings_lang:
+            strings, resolved = await self.hass.async_add_executor_job(
+                load_translations, TRANSLATIONS_DIR, lang
+            )
+            self.strings = strings
+            self._strings_lang = resolved
 
     def _get_accounts(self) -> list[dict]:
         """Return all configured accounts, supporting both v1 and v2 data schemas."""
@@ -67,6 +79,7 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
         ]
 
     async def _async_update_data(self) -> CoordinatorData:
+        await self._load_strings()
         tracked_members: list[dict] = self.entry.data.get(CONF_MEMBERS, [])
         canonical_names = {m["canonical"] for m in tracked_members}
 

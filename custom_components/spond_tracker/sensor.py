@@ -14,7 +14,6 @@ from homeassistant.util import dt as dt_util
 
 from .const import CONF_MEMBERS
 from .coordinator import SpondDataUpdateCoordinator
-from .spond_i18n import TRANSLATIONS_DIR, load_translations
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,8 +47,7 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
         self._member = member_cfg
         self._canonical = member_cfg["canonical"]
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_events"
-        t, _ = load_translations(TRANSLATIONS_DIR, coordinator.hass.config.language)
-        tmpl = t.get("sensors", {}).get("events_friendly", "Spond {name}")
+        tmpl = coordinator.strings.get("sensors", {}).get("events_friendly", "Spond {name}")
         self._attr_name = tmpl.format(name=member_cfg["display_name"])
 
     @property
@@ -114,8 +112,7 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
         self._member = member_cfg
         self._canonical = member_cfg["canonical"]
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_tasks"
-        t, _ = load_translations(TRANSLATIONS_DIR, coordinator.hass.config.language)
-        tmpl = t.get("sensors", {}).get("tasks_friendly", "Spond tasks {name}")
+        tmpl = coordinator.strings.get("sensors", {}).get("tasks_friendly", "Spond tasks {name}")
         self._attr_name = tmpl.format(name=member_cfg["display_name"])
 
     @property
