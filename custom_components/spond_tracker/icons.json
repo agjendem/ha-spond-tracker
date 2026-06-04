@@ -1,0 +1,12 @@
+{
+  "entity": {
+    "sensor": {
+      "events": {
+        "default": "mdi:calendar-account"
+      },
+      "tasks": {
+        "default": "mdi:clipboard-list-outline"
+      }
+    }
+  }
+}

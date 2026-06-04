@@ -9,5 +9,6 @@
   "iot_class": "cloud_polling",
   "requirements": ["spond==1.2.1"],
   "homeassistant": "2023.11.0",
-  "issue_tracker": "https://github.com/agjendem/ha-spond-tracker/issues"
+  "issue_tracker": "https://github.com/agjendem/ha-spond-tracker/issues",
+  "quality_scale": "silver"
 }

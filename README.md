@@ -124,6 +124,36 @@ notifications without writing automation YAML. Import via the badges below:
 
 [![Import: task reminder](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_task_reminder.yaml) **task reminder (N min before task)**
 
+## Data updates
+
+The integration polls Spond once every **30 minutes** by default. You can
+change the interval in **Options** (Settings → Devices & Services →
+Spond Tracker → Configure) to any value between 5 and 1440 minutes.
+
+Each poll fetches events starting from now and up to 60 days ahead (max 200
+events per account). Calendar entities and sensors are refreshed immediately
+after a successful poll. If a poll fails, the previous data remains available
+and entities stay in their last-known state; if all accounts fail, entities
+are marked unavailable and a warning is logged.
+
+Change detection runs after every poll and fires HA bus events for any
+additions, removals, or changes since the previous poll.
+
+## Known limitations
+
+- **Same first name** — member matching uses the first token of the Spond
+  first name (lowercased). Two group members with the same first name will
+  collide and share a single tracked member. There is no workaround within
+  the integration today.
+- **60-day window** — only events starting within the next 60 days are
+  fetched. Events further in the future will not appear in the calendar.
+- **Poll-based change detection** — event bus events (`spond_event_added`,
+  etc.) are fired between polls, not in real time. Expect up to one
+  poll-interval of delay.
+- **Spond API** — this integration uses the unofficial Spond Python client
+  (`Olen/Spond`). Spond has no public API, so breaking changes in the app
+  backend may require an update to the library.
+
 ## Recorder / history
 
 Sensor attributes (`today_events`, `upcoming_events`, `tasks`) contain full
@@ -145,13 +175,13 @@ To keep the numeric state but skip the large attributes, use
 
 - **No events appearing** — check HA logs (Settings → System → Logs) for
   errors under the `spond_tracker` domain. The integration logs each poll.
-- **Wrong member matched** — matching uses the first token of the Spond
-  first name (lowercased). Two members with the same first name will
-  collide; there is no workaround for that today.
 - **Entities unavailable** — the coordinator marks all entities unavailable
   when every configured account fails to fetch. Check credentials in Options.
+  The integration logs a warning when this happens and an info message when it
+  recovers.
 - **Poll not running** — the poll interval is configurable in Options
   (Settings → Devices & Services → Spond Tracker → Configure).
+- **Member name collision** — see [Known limitations](#known-limitations).
 
 ## Removing the integration
 

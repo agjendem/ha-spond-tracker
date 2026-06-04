@@ -38,7 +38,6 @@ async def async_setup_entry(
 class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEntity):
     """Sensor: number of Spond events today for one member."""
 
-    _attr_icon = "mdi:calendar-account"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_has_entity_name = True
     _attr_native_unit_of_measurement = "events"
@@ -109,7 +108,6 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
 class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEntity):
     """Sensor: number of active Spond tasks assigned to one member."""
 
-    _attr_icon = "mdi:clipboard-list-outline"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_has_entity_name = True
     _attr_native_unit_of_measurement = "tasks"
