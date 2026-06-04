@@ -104,9 +104,15 @@
     "status_unknown": "Ukjent",
     "status_cancelled": "Avlyst"
   },
-  "sensors": {
-    "events_friendly": "Spond {name}",
-    "tasks_friendly": "Spond oppgaver {name}"
+  "entity": {
+    "sensor": {
+      "events": {
+        "name": "Spond {name}"
+      },
+      "tasks": {
+        "name": "Spond oppgaver {name}"
+      }
+    }
   },
   "selector": {
     "action": {

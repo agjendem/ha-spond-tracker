@@ -119,7 +119,14 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if not any_success and accounts:
             if auth_failed and len(auth_failed) == len(accounts):
                 raise ConfigEntryAuthFailed(f"Authentication failed for: {', '.join(auth_failed)}")
+            if self.last_update_success:
+                _LOGGER.warning(
+                    "Spond Tracker: all accounts unavailable, integration is now unavailable"
+                )
             raise UpdateFailed("All Spond accounts failed to fetch events")
+
+        if not self.last_update_success:
+            _LOGGER.info("Spond Tracker: integration is now available again")
 
         # Sort by start time
         for canonical in events_per_member:

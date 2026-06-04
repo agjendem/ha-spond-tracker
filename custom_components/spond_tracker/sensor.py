@@ -48,8 +48,8 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
         self._member = member_cfg
         self._canonical = member_cfg["canonical"]
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_events"
-        tmpl = coordinator.strings.get("sensors", {}).get("events_friendly", "Spond {name}")
-        self._attr_name = tmpl.format(name=member_cfg["display_name"])
+        self._attr_translation_key = "events"
+        self._attr_translation_placeholders = {"name": member_cfg["display_name"]}
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
             name=member_cfg["display_name"],
@@ -119,8 +119,8 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
         self._member = member_cfg
         self._canonical = member_cfg["canonical"]
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_tasks"
-        tmpl = coordinator.strings.get("sensors", {}).get("tasks_friendly", "Spond tasks {name}")
-        self._attr_name = tmpl.format(name=member_cfg["display_name"])
+        self._attr_translation_key = "tasks"
+        self._attr_translation_placeholders = {"name": member_cfg["display_name"]}
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
             name=member_cfg["display_name"],
