@@ -319,10 +319,12 @@ To keep the numeric state but skip the large attributes, use
 
 ## Development
 
+Requires **Python 3.13+** (the test suite targets HA 2026.x).
+
 ```bash
 git clone https://github.com/agjendem/ha-spond-tracker.git
 cd ha-spond-tracker
-python3 -m venv .venv
+python3.13 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```

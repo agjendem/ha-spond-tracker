@@ -4,4 +4,4 @@
 ruff==0.15.15
 pre-commit==4.6.0
 spond==1.2.1
-pytest-homeassistant-custom-component==0.13.109
+pytest-homeassistant-custom-component==0.13.316
