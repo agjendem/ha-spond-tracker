@@ -1,0 +1,101 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Spond-konto",
+        "description": "Skriv inn brukernavn og passord for Spond-kontoen din.",
+        "data": {
+          "username": "E-postadresse",
+          "password": "Passord"
+        }
+      },
+      "members": {
+        "title": "Velg medlemmer å spore",
+        "description": "Velg hvilke medlemmer du vil opprette kalender og sensorer for.",
+        "data": {
+          "members": "Medlemmer å spore"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ugyldig e-postadresse eller passord.",
+      "cannot_connect": "Kunne ikke koble til Spond. Sjekk internettforbindelsen og prøv igjen."
+    },
+    "abort": {
+      "already_configured": "Denne Spond-kontoen er allerede konfigurert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Innstillinger for Spond Tracker",
+        "description": "Konfigurerte kontoer:\n{accounts}",
+        "data": {
+          "poll_interval": "Oppdateringsintervall (minutter)",
+          "action": "Handling"
+        }
+      },
+      "add_account": {
+        "title": "Legg til Spond-konto",
+        "description": "Skriv inn påloggingsinfo for en ekstra Spond-konto. Medlemmer som finnes vil bli slått sammen med eksisterende.",
+        "data": {
+          "username": "E-postadresse",
+          "password": "Passord"
+        }
+      },
+      "add_account_members": {
+        "title": "Velg medlemmer å spore",
+        "description": "Velg hvilke nye medlemmer du vil opprette kalender og sensorer for.",
+        "data": {
+          "members": "Medlemmer å spore"
+        }
+      },
+      "remove_account": {
+        "title": "Fjern Spond-konto",
+        "description": "Velg kontoen som skal fjernes. Medlemmer som kun finnes på denne kontoen fjernes automatisk.",
+        "data": {
+          "account": "Konto som skal fjernes"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ugyldig e-postadresse eller passord.",
+      "cannot_connect": "Kunne ikke koble til Spond. Sjekk internettforbindelsen og prøv igjen."
+    }
+  },
+  "calendar": {
+    "cancelled_prefix": "AVLYST: ",
+    "status_label": "Status",
+    "location_label": "Sted",
+    "address_label": "Adresse",
+    "my_tasks_header": "Mine oppgaver:",
+    "all_tasks_header": "Alle oppgaver:",
+    "signed_up_suffix": "påmeldt",
+    "open_slot": "LEDIG",
+    "adults_only": "kun voksne",
+    "co_assignees_with": "sammen med",
+    "task_for": "Oppgave for",
+    "on_event": "På event",
+    "task_signed_up": "Påmeldt",
+    "task_with": "Sammen med",
+    "main_event_cancelled": "⚠️ Hovedeventet er AVLYST",
+    "status_accepted": "Påmeldt",
+    "status_declined": "Ikke påmeldt",
+    "status_waitinglist": "Venteliste",
+    "status_unanswered": "Ikke svart",
+    "status_unknown": "Ukjent",
+    "status_cancelled": "Avlyst"
+  },
+  "sensors": {
+    "events_friendly": "Spond {name}",
+    "tasks_friendly": "Spond oppgaver {name}"
+  },
+  "selector": {
+    "action": {
+      "options": {
+        "add": "Legg til konto",
+        "remove": "Fjern konto"
+      }
+    }
+  }
+}

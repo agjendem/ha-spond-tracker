@@ -1,12 +1,15 @@
-"""Pytest config — exposes apps/spond_tracker/ as an importable path.
+"""Pytest config — exposes importable paths for both the AppDaemon app and
+the native integration helpers.
 
-AppDaemon runs each app from its own directory, with that directory on
-sys.path. We mimic that for tests so sibling modules import naturally
-(`import spond_helpers`, not `from apps.spond_tracker import ...`).
+The AppDaemon app dir is added so existing tests (`import spond_helpers`,
+`from spond_i18n import ...`) continue to resolve against the original
+apps/spond_tracker/ copy without change.
 """
 
 import sys
 from pathlib import Path
 
 APP_DIR = Path(__file__).parent.parent / "apps" / "spond_tracker"
-sys.path.insert(0, str(APP_DIR))
+INTEGRATION_DIR = Path(__file__).parent.parent / "custom_components" / "spond_tracker"
+sys.path.insert(0, str(INTEGRATION_DIR))
+sys.path.insert(0, str(APP_DIR))  # APP_DIR first: existing tests import from apps/

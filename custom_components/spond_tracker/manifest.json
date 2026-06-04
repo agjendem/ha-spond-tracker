@@ -1,0 +1,12 @@
+{
+  "domain": "spond_tracker",
+  "name": "Spond Tracker",
+  "version": "2.0.0",
+  "codeowners": ["@agjendem"],
+  "config_flow": true,
+  "documentation": "https://github.com/agjendem/ha-spond-tracker",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "requirements": ["spond==1.2.1"],
+  "homeassistant": "2023.11.0"
+}

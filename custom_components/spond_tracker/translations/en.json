@@ -1,0 +1,101 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Spond account",
+        "description": "Enter your Spond account credentials.",
+        "data": {
+          "username": "Email address",
+          "password": "Password"
+        }
+      },
+      "members": {
+        "title": "Select members to track",
+        "description": "Choose which members to create a calendar and sensors for.",
+        "data": {
+          "members": "Members to track"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email address or password.",
+      "cannot_connect": "Could not connect to Spond. Check your internet connection and try again."
+    },
+    "abort": {
+      "already_configured": "This Spond account is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Spond Tracker options",
+        "description": "Configured accounts:\n{accounts}",
+        "data": {
+          "poll_interval": "Polling interval (minutes)",
+          "action": "Action"
+        }
+      },
+      "add_account": {
+        "title": "Add Spond account",
+        "description": "Enter credentials for an additional Spond account. Members found will be merged with existing members.",
+        "data": {
+          "username": "Email address",
+          "password": "Password"
+        }
+      },
+      "add_account_members": {
+        "title": "Select members to track",
+        "description": "Choose which new members to create a calendar and sensors for.",
+        "data": {
+          "members": "Members to track"
+        }
+      },
+      "remove_account": {
+        "title": "Remove Spond account",
+        "description": "Select the account to remove. Members only found on this account will be removed automatically.",
+        "data": {
+          "account": "Account to remove"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email address or password.",
+      "cannot_connect": "Could not connect to Spond. Check your internet connection and try again."
+    }
+  },
+  "calendar": {
+    "cancelled_prefix": "CANCELLED: ",
+    "status_label": "Status",
+    "location_label": "Location",
+    "address_label": "Address",
+    "my_tasks_header": "My tasks:",
+    "all_tasks_header": "All tasks:",
+    "signed_up_suffix": "signed up",
+    "open_slot": "OPEN",
+    "adults_only": "adults only",
+    "co_assignees_with": "with",
+    "task_for": "Task for",
+    "on_event": "On event",
+    "task_signed_up": "Signed up",
+    "task_with": "With",
+    "main_event_cancelled": "⚠️ Main event is CANCELLED",
+    "status_accepted": "Accepted",
+    "status_declined": "Declined",
+    "status_waitinglist": "Waitinglist",
+    "status_unanswered": "Unanswered",
+    "status_unknown": "Unknown",
+    "status_cancelled": "Cancelled"
+  },
+  "sensors": {
+    "events_friendly": "Spond {name}",
+    "tasks_friendly": "Spond tasks {name}"
+  },
+  "selector": {
+    "action": {
+      "options": {
+        "add": "Add account",
+        "remove": "Remove account"
+      }
+    }
+  }
+}
