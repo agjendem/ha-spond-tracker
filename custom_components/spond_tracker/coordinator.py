@@ -9,6 +9,11 @@ from datetime import UTC, datetime, timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.issue_registry import (
+    IssueSeverity,
+    async_create_issue,
+    async_delete_issue,
+)
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from spond import spond as spond_lib
 
@@ -53,6 +58,7 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._previous_fingerprints: dict[str, dict[str, dict]] = {}
         self.strings: dict = {}
         self._strings_lang: str = ""
+        self._consecutive_failures: int = 0
 
     @property
     def language(self) -> str:
@@ -123,8 +129,20 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 _LOGGER.warning(
                     "Spond Tracker: all accounts unavailable, integration is now unavailable"
                 )
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= 3:
+                async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    "cannot_connect",
+                    is_fixable=False,
+                    severity=IssueSeverity.WARNING,
+                    translation_key="cannot_connect",
+                )
             raise UpdateFailed("All Spond accounts failed to fetch events")
 
+        self._consecutive_failures = 0
+        async_delete_issue(self.hass, DOMAIN, "cannot_connect")
         if not self.last_update_success:
             _LOGGER.info("Spond Tracker: integration is now available again")
 
