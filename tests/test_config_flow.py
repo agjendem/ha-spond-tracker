@@ -384,3 +384,71 @@ async def test_options_remove_not_shown_with_single_account(hass, config_entry):
             for o in (getattr(selector_cfg, "config", {}) or {}).get("options", [])
         ]
         assert "remove" not in options_in_selector
+
+
+# ── ReauthFlow ────────────────────────────────────────────────────────────────
+
+
+async def test_reauth_step_shows_form(hass, config_entry):
+    """Reauth flow shows the reauth_confirm form."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reauth", "entry_id": config_entry.entry_id},
+        data=config_entry.data,
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+
+
+async def test_reauth_invalid_auth(hass, config_entry):
+    """Reauth with wrong credentials shows invalid_auth error."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reauth", "entry_id": config_entry.entry_id},
+        data=config_entry.data,
+    )
+    with patch(
+        "custom_components.spond_tracker.config_flow._validate_and_discover",
+        side_effect=InvalidAuth("bad"),
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_USERNAME: "user@example.com", CONF_PASSWORD: "wrong"},
+        )
+    assert result2["type"] == FlowResultType.FORM
+    assert result2["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reauth_success_updates_password(hass, config_entry, mock_setup_entry):
+    """Successful reauth updates the account password in entry data."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reauth", "entry_id": config_entry.entry_id},
+        data=config_entry.data,
+    )
+    with patch(
+        "custom_components.spond_tracker.config_flow._validate_and_discover",
+        return_value=MOCK_MEMBERS,
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_USERNAME: "user@example.com", CONF_PASSWORD: "newpass"},
+        )
+    assert result2["type"] == FlowResultType.ABORT
+    assert result2["reason"] == "reauth_successful"
+    updated = hass.config_entries.async_get_entry(config_entry.entry_id)
+    account = updated.data[CONF_ACCOUNTS][0]
+    assert account[CONF_PASSWORD] == "newpass"
+
+
+async def test_reauth_single_account_prefills_username(hass, config_entry):
+    """Reauth form pre-fills username when there is only one account."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reauth", "entry_id": config_entry.entry_id},
+        data=config_entry.data,
+    )
+    assert result["type"] == FlowResultType.FORM
+    schema_keys = list(result["data_schema"].schema.keys())
+    username_key = next(k for k in schema_keys if str(k) == CONF_USERNAME)
+    assert username_key.default() == "user@example.com"
