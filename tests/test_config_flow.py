@@ -131,9 +131,7 @@ async def test_user_step_already_configured(hass, mock_validate, mock_setup_entr
         context={"source": config_entries.SOURCE_USER},
         data={CONF_USERNAME: "u@e.com", CONF_PASSWORD: "pw"},
     )
-    await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_MEMBERS: ["alice"]}
-    )
+    await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_MEMBERS: ["alice"]})
 
     # Second attempt with same username → abort
     result2 = await hass.config_entries.flow.async_init(

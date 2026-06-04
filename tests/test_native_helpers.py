@@ -24,6 +24,7 @@ process_raw_events = _mod.process_raw_events
 
 # ── helpers shared across test classes ───────────────────────────────────────
 
+
 def _make_member(mid: str, first: str, last: str = "") -> dict:
     return {"id": mid, "firstName": first, "lastName": last}
 
@@ -68,11 +69,7 @@ def _make_event(
         "cancelled": cancelled,
         "location": {"feature": location, "address": address},
         "behalfOfIds": [member_id],
-        "recipients": {
-            "group": {
-                "members": [_make_member(member_id, first, last)]
-            }
-        },
+        "recipients": {"group": {"members": [_make_member(member_id, first, last)]}},
         "responses": responses,
         "tasks": {
             "openTasks": open_tasks or [],
@@ -92,6 +89,7 @@ def _fresh_state(*canonicals: str) -> tuple:
 
 
 # ── TestMemberCanonical ───────────────────────────────────────────────────────
+
 
 class TestMemberCanonical:
     def test_simple_first_name(self) -> None:
@@ -120,6 +118,7 @@ class TestMemberCanonical:
 
 
 # ── TestMembersFromEvents ─────────────────────────────────────────────────────
+
 
 class TestMembersFromEvents:
     def test_empty_events_returns_empty(self) -> None:
@@ -184,6 +183,7 @@ class TestMembersFromEvents:
 
 # ── TestDedupMembersByFirstToken ──────────────────────────────────────────────
 
+
 class TestDedupMembersByFirstToken:
     def test_empty_returns_empty(self) -> None:
         assert dedup_members_by_first_token([]) == []
@@ -242,6 +242,7 @@ class TestDedupMembersByFirstToken:
 
 # ── TestProcessRawEvents ──────────────────────────────────────────────────────
 
+
 class TestProcessRawEvents:
     """Full integration tests for the inner event-processing loop."""
 
@@ -289,9 +290,14 @@ class TestProcessRawEvents:
     def test_event_fields_populated(self) -> None:
         cn, su, epm, tpm = _fresh_state("sivert")
         ev = _make_event(
-            "e1", "m1", "Sivert",
-            heading="Training", start="2026-07-01T08:00:00Z", end="2026-07-01T10:00:00Z",
-            location="Hall A", address="Main St 1",
+            "e1",
+            "m1",
+            "Sivert",
+            heading="Training",
+            start="2026-07-01T08:00:00Z",
+            end="2026-07-01T10:00:00Z",
+            location="Hall A",
+            address="Main St 1",
         )
         process_raw_events([ev], cn, su, epm, tpm)
         e = epm["sivert"][0]

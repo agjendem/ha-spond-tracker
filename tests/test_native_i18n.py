@@ -43,6 +43,7 @@ def _load_json(lang: str) -> dict:
 
 # ── TestNativeLoadTranslations ────────────────────────────────────────────────
 
+
 class TestNativeLoadTranslations:
     def test_en_loads(self) -> None:
         data, resolved = native_load_translations(NATIVE_TRANSLATIONS_DIR, "en")
@@ -76,6 +77,7 @@ class TestNativeLoadTranslations:
 
 # ── TestNativeTranslationParity ───────────────────────────────────────────────
 
+
 class TestNativeTranslationParity:
     """Every shipped translation file must have exactly the same key shape as en.json."""
 
@@ -94,6 +96,7 @@ class TestNativeTranslationParity:
 
 
 # ── TestNativeCalendarKeys ────────────────────────────────────────────────────
+
 
 class TestNativeCalendarKeys:
     """All runtime calendar string keys must be present in every translation."""
@@ -141,6 +144,7 @@ class TestNativeCalendarKeys:
 
 # ── TestNativeSensorKeys ──────────────────────────────────────────────────────
 
+
 class TestNativeSensorKeys:
     @pytest.mark.parametrize("lang", ["en", "nb"])
     def test_sensor_keys_present(self, lang: str) -> None:
@@ -158,6 +162,7 @@ class TestNativeSensorKeys:
 
 
 # ── TestNativeConfigFlowKeys ──────────────────────────────────────────────────
+
 
 class TestNativeConfigFlowKeys:
     @pytest.mark.parametrize("lang", ["en", "nb"])
@@ -189,6 +194,7 @@ class TestNativeConfigFlowKeys:
 
 
 # ── TestNativeOptionsFlowKeys ─────────────────────────────────────────────────
+
 
 class TestNativeOptionsFlowKeys:
     @pytest.mark.parametrize("lang", ["en", "nb"])
@@ -232,6 +238,7 @@ class TestNativeOptionsFlowKeys:
 
 
 # ── TestNativeStatusEmojiAndMarker ────────────────────────────────────────────
+
 
 class TestNativeStatusEmojiAndMarker:
     @pytest.mark.parametrize("status", _KNOWN_STATUSES)
