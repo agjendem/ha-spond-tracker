@@ -51,14 +51,14 @@ Copy `custom_components/spond_tracker/` into your HA config directory under
 
 ## Prerequisites
 
-- Home Assistant 2023.11 or newer
-- One or more Spond accounts
+- Home Assistant 2026.1 or newer
+- One or more [Spond](https://spond.com) accounts
 
 ## Configuration
 
 Setup is fully UI-based. The wizard walks through:
 
-1. **Credentials** — Spond username (email) and password.
+1. **Credentials** — Spond username (email or phone number) and password.
 2. **Members** — multi-select which family members to track. Members are
    discovered from your Spond events automatically; one entry per first name.
 
@@ -146,7 +146,7 @@ scenarios out of the box (see [Automation blueprints](#automation-blueprints)).
 For custom logic you can target any event directly:
 
 ```yaml
-alias: "Spond: varsle om avlyst trening (Alice)"
+alias: "Spond: notify cancelled event (Alice)"
 trigger:
   - platform: event
     event_type: spond_event_cancelled
@@ -155,14 +155,14 @@ trigger:
 action:
   - service: notify.mobile_app_alice_phone
     data:
-      title: "Trening avlyst ❌"
+      title: "Event cancelled ❌"
       message: >
         {{ trigger.event.data.title }}
-        ({{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %-d. %b %H:%M') }})
+        ({{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %b %-d %H:%M') }})
 ```
 
 ```yaml
-alias: "Spond: varsle om ny trening (Alice)"
+alias: "Spond: notify new event (Alice)"
 trigger:
   - platform: event
     event_type: spond_event_added
@@ -171,15 +171,15 @@ trigger:
 action:
   - service: notify.mobile_app_alice_phone
     data:
-      title: "Ny Spond-aktivitet 📅"
+      title: "New Spond event 📅"
       message: >
         {{ trigger.event.data.title }}
-        {{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %-d. %b %H:%M') }}
+        {{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %b %-d %H:%M') }}
         {% if trigger.event.data.location %} — {{ trigger.event.data.location }}{% endif %}
 ```
 
 ```yaml
-alias: "Spond: varsle om ny oppgave (Alice)"
+alias: "Spond: notify new task (Alice)"
 trigger:
   - platform: event
     event_type: spond_task_assigned
@@ -188,11 +188,11 @@ trigger:
 action:
   - service: notify.mobile_app_alice_phone
     data:
-      title: "Ny Spond-oppgave 📋"
+      title: "New Spond task 📋"
       message: >
         {{ trigger.event.data.task }}
-        på {{ trigger.event.data.title }}
-        ({{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %-d. %b %H:%M') }})
+        for {{ trigger.event.data.title }}
+        ({{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %b %-d %H:%M') }})
 ```
 
 Repeat each automation per family member with their own notification target.
@@ -209,38 +209,38 @@ at a fixed time each day.
 ```yaml
 template:
   - sensor:
-      - name: "Alice Spond i dag"
-        state: "{{ state_attr('sensor.spond_alice', 'today_count') }} aktivitet(er)"
+      - name: "Alice Spond today"
+        state: "{{ state_attr('sensor.spond_alice', 'today_count') }} event(s)"
         attributes:
           summary: >
             {% set evs = state_attr('sensor.spond_alice', 'today_events') %}
             {% if evs %}
               {% for e in evs %}
-                {{ e.title }} kl. {{ e.start | as_timestamp | timestamp_custom('%H:%M') }}
+                {{ e.title }} at {{ e.start | as_timestamp | timestamp_custom('%H:%M') }}
                 ({{ e.status }}){{ '\n' if not loop.last }}
               {% endfor %}
             {% else %}
-              Ingen aktiviteter i dag.
+              No events today.
             {% endif %}
 ```
 
 **Morning notification — sent at 07:00:**
 
 ```yaml
-alias: "Spond: god morgen-oppsummering"
+alias: "Spond: morning summary"
 trigger:
   - platform: time
     at: "07:00:00"
 action:
   - service: notify.mobile_app_family_group
     data:
-      title: "Spond i dag"
+      title: "Spond today"
       message: >
         {% for member in ['alice', 'bob'] %}
           {% set s = 'sensor.spond_' ~ member %}
           {% set n = state_attr(s, 'today_count') | int(0) %}
           {% if n > 0 %}
-            {{ member | title }}: {{ n }} aktivitet(er)
+            {{ member | title }}: {{ n }} event(s)
             {% for e in state_attr(s, 'today_events') %}
               • {{ e.title }} {{ e.start | as_timestamp | timestamp_custom('%H:%M') }}
             {% endfor %}
@@ -278,8 +278,8 @@ additions, removals, or changes since the previous poll.
 - **Poll-based change detection** — event bus events (`spond_event_added`,
   etc.) are fired between polls, not in real time. Expect up to one
   poll-interval of delay.
-- **Spond API** — this integration uses the unofficial Spond Python client
-  (`Olen/Spond`). Spond has no public API, so breaking changes in the app
+- **Spond API** — this integration uses the unofficial [Olen/Spond](https://github.com/Olen/Spond) Python client.
+  Spond has no public API, so breaking changes in the app
   backend may require an update to the library.
 
 ## Recorder / history
@@ -346,5 +346,4 @@ MIT — see [LICENSE](./LICENSE).
 
 ## Acknowledgements
 
-Built on top of [Olen/Spond](https://github.com/Olen/Spond) — the
-unofficial Spond Python client.
+Built on top of the unofficial [Olen/Spond](https://github.com/Olen/Spond) Python client.
