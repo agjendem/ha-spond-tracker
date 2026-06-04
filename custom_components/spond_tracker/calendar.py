@@ -11,12 +11,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_MEMBERS, DOMAIN
+from .const import CONF_MEMBERS
 from .coordinator import SpondDataUpdateCoordinator
 from .spond_helpers import stable_uid_for
 from .spond_i18n import STATUS_EMOJI, TASK_MARKER, TRANSLATIONS_DIR, load_translations
 
 _LOGGER = logging.getLogger(__name__)
+
+PARALLEL_UPDATES = 1
 
 
 async def async_setup_entry(
@@ -24,7 +26,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: SpondDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: SpondDataUpdateCoordinator = entry.runtime_data
     members = entry.data.get(CONF_MEMBERS, [])
     async_add_entities(SpondCalendarEntity(coordinator, member) for member in members)
 

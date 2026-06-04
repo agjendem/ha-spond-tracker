@@ -364,6 +364,24 @@ emits a deprecation warning on startup. Change it to `language: nb`
   in Spond, that you've accepted/not-yet-responded, and that your
   account has visibility into the group.
 
+## Removing the integration
+
+### Native HA integration
+
+1. **Settings → Devices & Services → Spond Tracker**
+2. Click the three-dot menu on the integration card → **Delete**
+3. Confirm the removal. HA will unload all entities (calendars and sensors) automatically.
+4. Restart Home Assistant to ensure all related data is fully cleaned up.
+
+### AppDaemon app
+
+1. Remove the `spond_tracker` block from `/config/appdaemon/apps/apps.yaml`.
+2. Delete the installed files from `/config/appdaemon/apps/spond_tracker/` (or let HACS manage removal via HACS → Spond Tracker → Remove).
+3. Restart the AppDaemon add-on.
+4. Optionally remove the `local_calendar` entries for each tracked member via Settings → Devices & Services → Local Calendar.
+
+---
+
 ## What is *not* stored in this repository
 
 By design, this repo contains only generic application code. The
