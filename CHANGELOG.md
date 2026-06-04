@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.5.0...v0.6.0) (2026-06-04)
+
+
+### Features
+
+* brand icons at correct sizes, icon-translations, quality_scale silver ([639e5f4](https://github.com/agjendem/ha-spond-tracker/commit/639e5f424855b1e2c6cee1aff49b9a4ea9f630eb))
+* repair-issues Gold IQS rule — persistent connection failure notification ([33d5b0c](https://github.com/agjendem/ha-spond-tracker/commit/33d5b0c2e1fb756cb98f93876fb40d75ed10ed07))
+
+
+### Documentation
+
+* add CLAUDE.md with full IQS checklist and project context ([f8b96f7](https://github.com/agjendem/ha-spond-tracker/commit/f8b96f7c055e63c50b90e58297ebe1a8feab0396))
+* add use-cases section (Gold IQS docs-use-cases) ([2d25cda](https://github.com/agjendem/ha-spond-tracker/commit/2d25cda159bc1575a4891bc535c108321775c67c))
+* mark Gold IQS complete in CLAUDE.md ([14505df](https://github.com/agjendem/ha-spond-tracker/commit/14505dfae7e33b74463654bf5d85045f132a9ad8))
+
 ## [0.5.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.4.0...v0.5.0) (2026-06-04)
 
 
