@@ -67,16 +67,7 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._strings_lang = resolved
 
     def _get_accounts(self) -> list[dict]:
-        """Return all configured accounts, supporting both v1 and v2 data schemas."""
-        if CONF_ACCOUNTS in self.entry.data:
-            return self.entry.data[CONF_ACCOUNTS]
-        # Legacy v1 schema fallback
-        return [
-            {
-                CONF_USERNAME: self.entry.data[CONF_USERNAME],
-                CONF_PASSWORD: self.entry.data[CONF_PASSWORD],
-            }
-        ]
+        return self.entry.data.get(CONF_ACCOUNTS, [])
 
     async def _async_update_data(self) -> CoordinatorData:
         await self._load_strings()
