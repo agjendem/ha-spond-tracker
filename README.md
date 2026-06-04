@@ -124,6 +124,93 @@ notifications without writing automation YAML. Import via the badges below:
 
 [![Import: task reminder](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_task_reminder.yaml) **task reminder (N min before task)**
 
+## Use cases
+
+### Push notifications for tasks and events
+
+The most common use case is sending a mobile push notification whenever
+something changes in Spond — a new task is assigned, an event is cancelled,
+or a match time is updated. The integration fires HA bus events between polls
+that you can use as automation triggers.
+
+The four importable blueprints in this repo cover the most useful
+notification scenarios out of the box (see [Automation blueprints](#automation-blueprints)).
+For custom logic you can write your own automation directly against the bus events:
+
+```yaml
+alias: "Spond: varsle om ny oppgave (Alice)"
+trigger:
+  - platform: event
+    event_type: spond_task_assigned
+    event_data:
+      member: alice
+action:
+  - service: notify.mobile_app_alice_phone
+    data:
+      title: "Ny Spond-oppgave 📋"
+      message: >
+        {{ trigger.event.data.task }}
+        på {{ trigger.event.data.title }}
+        ({{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %-d. %b %H:%M') }})
+```
+
+Repeat per family member with their own notification target.
+
+### Daily activity overview
+
+Each tracked member has a `sensor.spond_<member>` with today's event count
+and a full `calendar.spond_<member>` entity. Combine these in a morning
+briefing — either as a dashboard card or as a spoken/text notification sent
+at a fixed time each day.
+
+**Template sensor — today's events as a text summary:**
+
+```yaml
+template:
+  - sensor:
+      - name: "Alice Spond i dag"
+        state: "{{ state_attr('sensor.spond_alice', 'today_count') }} aktivitet(er)"
+        attributes:
+          summary: >
+            {% set evs = state_attr('sensor.spond_alice', 'today_events') %}
+            {% if evs %}
+              {% for e in evs %}
+                {{ e.title }} kl. {{ e.start | as_timestamp | timestamp_custom('%H:%M') }}
+                ({{ e.status }}){{ '\n' if not loop.last }}
+              {% endfor %}
+            {% else %}
+              Ingen aktiviteter i dag.
+            {% endif %}
+```
+
+**Morning notification — sent at 07:00:**
+
+```yaml
+alias: "Spond: god morgen-oppsummering"
+trigger:
+  - platform: time
+    at: "07:00:00"
+action:
+  - service: notify.mobile_app_family_group
+    data:
+      title: "Spond i dag"
+      message: >
+        {% for member in ['alice', 'bob'] %}
+          {% set s = 'sensor.spond_' ~ member %}
+          {% set n = state_attr(s, 'today_count') | int(0) %}
+          {% if n > 0 %}
+            {{ member | title }}: {{ n }} aktivitet(er)
+            {% for e in state_attr(s, 'today_events') %}
+              • {{ e.title }} {{ e.start | as_timestamp | timestamp_custom('%H:%M') }}
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
+```
+
+**Dashboard card** — use the `calendar` card and add `calendar.spond_alice`,
+`calendar.spond_bob`, etc. as sources. You get a shared family activity view
+directly on your Home Assistant dashboard, including tasks as separate entries.
+
 ## Data updates
 
 The integration polls Spond once every **30 minutes** by default. You can
