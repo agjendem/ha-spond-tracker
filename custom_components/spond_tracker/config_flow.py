@@ -143,6 +143,53 @@ class SpondTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
         )
 
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> dict:
+        """Handle reauth when polling detects an auth failure."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> dict:
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        accounts = entry.data.get(CONF_ACCOUNTS, [])
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            username = user_input[CONF_USERNAME]
+            password = user_input[CONF_PASSWORD]
+            try:
+                await _validate_and_discover(username, password)
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected error during reauth for %s", username)
+                errors["base"] = "cannot_connect"
+            else:
+                updated_accounts = [
+                    {**acc, CONF_PASSWORD: password} if acc[CONF_USERNAME] == username else acc
+                    for acc in accounts
+                ]
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data={**entry.data, CONF_ACCOUNTS: updated_accounts},
+                    reason="reauth_successful",
+                )
+
+        default_username = accounts[0][CONF_USERNAME] if len(accounts) == 1 else ""
+        account_list = "\n" + "\n".join(f"- {a[CONF_USERNAME]}" for a in accounts)
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME, default=default_username): str,
+                    vol.Required(CONF_PASSWORD): str,
+                }
+            ),
+            description_placeholders={"accounts": account_list},
+            errors=errors,
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> "SpondTrackerOptionsFlow":

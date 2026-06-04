@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from spond import spond as spond_lib
 
@@ -81,6 +82,7 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         accounts = self._get_accounts()
         any_success = False
+        auth_failed: list[str] = []
 
         for acc in accounts:
             acc_username = acc[CONF_USERNAME]
@@ -95,9 +97,16 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 _LOGGER.debug("Spond[%s]: fetched %d events", acc_username, len(raw_events))
                 any_success = True
             except Exception as e:
-                _LOGGER.error(
-                    "Spond[%s] fetch error: %r\n%s", acc_username, e, traceback.format_exc()
-                )
+                err = str(e).lower()
+                if any(
+                    code in err for code in ("401", "403", "unauthorized", "forbidden", "invalid")
+                ):
+                    _LOGGER.warning("Spond[%s]: authentication failed", acc_username)
+                    auth_failed.append(acc_username)
+                else:
+                    _LOGGER.error(
+                        "Spond[%s] fetch error: %r\n%s", acc_username, e, traceback.format_exc()
+                    )
                 continue  # try remaining accounts
             finally:
                 with contextlib.suppress(Exception):
@@ -108,6 +117,8 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
 
         if not any_success and accounts:
+            if auth_failed and len(auth_failed) == len(accounts):
+                raise ConfigEntryAuthFailed(f"Authentication failed for: {', '.join(auth_failed)}")
             raise UpdateFailed("All Spond accounts failed to fetch events")
 
         # Sort by start time

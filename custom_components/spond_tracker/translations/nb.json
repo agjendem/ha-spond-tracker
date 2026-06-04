@@ -15,6 +15,14 @@
         "data": {
           "members": "Medlemmer å spore"
         }
+      },
+      "reauth_confirm": {
+        "title": "Autentiser Spond på nytt",
+        "description": "En eller flere kontoer mislyktes med autentisering. Skriv inn nye påloggingsopplysninger for kontoen som må oppdateres.\n\nKonfigurerte kontoer:{accounts}",
+        "data": {
+          "username": "E-postadresse",
+          "password": "Nytt passord"
+        }
       }
     },
     "error": {
@@ -22,7 +30,8 @@
       "cannot_connect": "Kunne ikke koble til Spond. Sjekk internettforbindelsen og prøv igjen."
     },
     "abort": {
-      "already_configured": "Denne Spond-kontoen er allerede konfigurert."
+      "already_configured": "Denne Spond-kontoen er allerede konfigurert.",
+      "reauth_successful": "Autentisering var vellykket."
     }
   },
   "options": {
