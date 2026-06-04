@@ -104,6 +104,12 @@
     "status_unknown": "Unknown",
     "status_cancelled": "Cancelled"
   },
+  "issues": {
+    "cannot_connect": {
+      "title": "Cannot connect to Spond",
+      "description": "Spond Tracker has failed to connect to Spond for several consecutive polls. Check your internet connection or whether Spond is experiencing an outage. The issue will resolve automatically when connectivity is restored."
+    }
+  },
   "entity": {
     "sensor": {
       "events": {

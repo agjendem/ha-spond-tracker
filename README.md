@@ -129,13 +129,54 @@ notifications without writing automation YAML. Import via the badges below:
 ### Push notifications for tasks and events
 
 The most common use case is sending a mobile push notification whenever
-something changes in Spond — a new task is assigned, an event is cancelled,
-or a match time is updated. The integration fires HA bus events between polls
-that you can use as automation triggers.
+something changes in Spond — a new training is scheduled, a match is
+cancelled, a time slot is updated, or a task is assigned. The integration
+fires HA bus events between polls for all of these:
 
-The four importable blueprints in this repo cover the most useful
-notification scenarios out of the box (see [Automation blueprints](#automation-blueprints)).
-For custom logic you can write your own automation directly against the bus events:
+| Event | When |
+|-------|------|
+| `spond_event_added` | New training/match/event discovered |
+| `spond_event_changed` | Title, time, location, or status changed |
+| `spond_event_cancelled` | Event flipped to cancelled |
+| `spond_event_removed` | Event disappeared entirely |
+| `spond_task_assigned` | A duty/task assigned to the member |
+
+The four importable blueprints in this repo cover the most common
+scenarios out of the box (see [Automation blueprints](#automation-blueprints)).
+For custom logic you can target any event directly:
+
+```yaml
+alias: "Spond: varsle om avlyst trening (Alice)"
+trigger:
+  - platform: event
+    event_type: spond_event_cancelled
+    event_data:
+      member: alice
+action:
+  - service: notify.mobile_app_alice_phone
+    data:
+      title: "Trening avlyst ❌"
+      message: >
+        {{ trigger.event.data.title }}
+        ({{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %-d. %b %H:%M') }})
+```
+
+```yaml
+alias: "Spond: varsle om ny trening (Alice)"
+trigger:
+  - platform: event
+    event_type: spond_event_added
+    event_data:
+      member: alice
+action:
+  - service: notify.mobile_app_alice_phone
+    data:
+      title: "Ny Spond-aktivitet 📅"
+      message: >
+        {{ trigger.event.data.title }}
+        {{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %-d. %b %H:%M') }}
+        {% if trigger.event.data.location %} — {{ trigger.event.data.location }}{% endif %}
+```
 
 ```yaml
 alias: "Spond: varsle om ny oppgave (Alice)"
@@ -154,7 +195,7 @@ action:
         ({{ trigger.event.data.start | as_timestamp | timestamp_custom('%a %-d. %b %H:%M') }})
 ```
 
-Repeat per family member with their own notification target.
+Repeat each automation per family member with their own notification target.
 
 ### Daily activity overview
 

@@ -104,6 +104,12 @@
     "status_unknown": "Ukjent",
     "status_cancelled": "Avlyst"
   },
+  "issues": {
+    "cannot_connect": {
+      "title": "Kan ikke koble til Spond",
+      "description": "Spond Tracker har mislyktes med å koble til Spond i flere påfølgende avspørringer. Sjekk internettforbindelsen eller om Spond opplever driftsproblemer. Saken løses automatisk når tilkoblingen gjenopprettes."
+    }
+  },
   "entity": {
     "sensor": {
       "events": {
