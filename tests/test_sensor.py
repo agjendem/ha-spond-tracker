@@ -3,12 +3,15 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
+import pytest
+
 from custom_components.spond_tracker.coordinator import CoordinatorData
 from custom_components.spond_tracker.sensor import SpondEventsSensor, SpondTasksSensor
 
 MEMBER = {"canonical": "alice", "display_name": "Alice Smith"}
 
-NOW = datetime.now(UTC)
+# Fixed reference point at noon UTC — avoids midnight boundary flakiness in CI.
+NOW = datetime(2026, 6, 15, 12, 0, 0, tzinfo=UTC)
 TODAY_START = NOW.replace(hour=0, minute=0, second=0, microsecond=0)
 FUTURE = NOW + timedelta(hours=2)
 TOMORROW = NOW + timedelta(days=1)
@@ -92,30 +95,35 @@ def test_events_sensor_unique_id():
     assert sensor._attr_unique_id == "test_entry_alice_events"
 
 
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
 def test_events_sensor_counts_todays_events():
     coord = _make_coordinator(events=[_today_event()])
     sensor = SpondEventsSensor(coord, MEMBER)
     assert sensor.native_value == 1
 
 
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
 def test_events_sensor_excludes_yesterdays_events():
     coord = _make_coordinator(events=[_yesterday_event()])
     sensor = SpondEventsSensor(coord, MEMBER)
     assert sensor.native_value == 0
 
 
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
 def test_events_sensor_excludes_cancelled():
     coord = _make_coordinator(events=[_today_event(status="cancelled")])
     sensor = SpondEventsSensor(coord, MEMBER)
     assert sensor.native_value == 0
 
 
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
 def test_events_sensor_excludes_declined():
     coord = _make_coordinator(events=[_today_event(status="declined")])
     sensor = SpondEventsSensor(coord, MEMBER)
     assert sensor.native_value == 0
 
 
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
 def test_events_sensor_attributes_structure():
     coord = _make_coordinator(events=[_today_event()])
     sensor = SpondEventsSensor(coord, MEMBER)
