@@ -240,15 +240,13 @@ class SpondTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> "SpondTrackerOptionsFlow":
-        return SpondTrackerOptionsFlow(config_entry)
+        return SpondTrackerOptionsFlow()
 
 
 class SpondTrackerOptionsFlow(OptionsFlow):
     """Handle options: poll interval, language, and adding more Spond accounts."""
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        # Store explicitly for HA versions that don't auto-inject config_entry.
-        self.config_entry = config_entry
+    def __init__(self) -> None:
         self._pending_options: dict[str, Any] = {}
         self._new_account: dict[str, str] = {}
         self._new_members: list[dict] = []

@@ -56,10 +56,13 @@ There is no manual `gh release create` step.
 
 ## Local development
 
+**Requires Python 3.13+.** The test suite runs against HA 2026.x which does
+not support older Python versions.
+
 ```bash
 git clone https://github.com/agjendem/ha-spond-tracker.git
 cd ha-spond-tracker
-python3 -m venv .venv
+python3.13 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
@@ -82,7 +85,7 @@ with two hooks:
 - **conventional-pre-commit** — rejects commit messages that don't match
   the prefixes above; runs at `commit-msg` stage.
 
-Install once after cloning:
+Install once after cloning (requires the venv to be active):
 
 ```bash
 pip install -r requirements-dev.txt
