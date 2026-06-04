@@ -7,6 +7,7 @@ independent of the AppDaemon version loaded by conftest via sys.path.
 import importlib.util
 import json
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -55,7 +56,7 @@ class TestNativeLoadTranslations:
         assert data["calendar"]["cancelled_prefix"] == "AVLYST: "
 
     def test_no_maps_to_nb(self) -> None:
-        data, resolved = native_load_translations(NATIVE_TRANSLATIONS_DIR, "no")
+        _data, resolved = native_load_translations(NATIVE_TRANSLATIONS_DIR, "no")
         assert resolved == "nb"
 
     def test_en_us_falls_back_to_en(self) -> None:
@@ -64,7 +65,7 @@ class TestNativeLoadTranslations:
         assert "calendar" in data
 
     def test_unknown_falls_back_to_en(self) -> None:
-        data, resolved = native_load_translations(NATIVE_TRANSLATIONS_DIR, "xx")
+        _data, resolved = native_load_translations(NATIVE_TRANSLATIONS_DIR, "xx")
         assert resolved == "en"
 
     def test_empty_dir_returns_empty(self, tmp_path: Path) -> None:
@@ -97,7 +98,7 @@ class TestNativeTranslationParity:
 class TestNativeCalendarKeys:
     """All runtime calendar string keys must be present in every translation."""
 
-    _REQUIRED = [
+    _REQUIRED: ClassVar[list[str]] = [
         "cancelled_prefix",
         "status_label",
         "location_label",

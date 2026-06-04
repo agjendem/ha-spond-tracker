@@ -8,8 +8,6 @@ that conftest.py places first in sys.path (which would otherwise resolve
 import importlib.util
 from pathlib import Path
 
-import pytest
-
 # ── load native module ────────────────────────────────────────────────────────
 _NATIVE_DIR = Path(__file__).parent.parent / "custom_components" / "spond_tracker"
 _spec = importlib.util.spec_from_file_location(

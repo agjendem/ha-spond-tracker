@@ -5,7 +5,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_ACCOUNTS, CONF_MEMBERS, CONF_PASSWORD, CONF_USERNAME, DOMAIN, PLATFORMS
+from .const import CONF_ACCOUNTS, CONF_MEMBERS, CONF_PASSWORD, CONF_USERNAME, PLATFORMS
 from .coordinator import SpondDataUpdateCoordinator
 from .spond_helpers import dedup_members_by_first_token
 
