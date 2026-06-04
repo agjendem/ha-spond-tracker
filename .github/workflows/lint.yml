@@ -32,7 +32,7 @@ jobs:
           python-version: "3.11"
       - name: Validate each translation file parses
         run: |
-          for f in apps/spond_tracker/translations/*.json; do
+          for f in custom_components/spond_tracker/translations/*.json; do
             echo "validating $f"
             python -m json.tool "$f" > /dev/null
           done
@@ -42,7 +42,7 @@ jobs:
           import json
           from pathlib import Path
 
-          tdir = Path("apps/spond_tracker/translations")
+          tdir = Path("custom_components/spond_tracker/translations")
           en = json.loads((tdir / "en.json").read_text())
 
           def flatten(d, prefix=""):
@@ -72,20 +72,6 @@ jobs:
               raise SystemExit(1)
           PY
 
-  syntax:
-    name: Python syntax
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-      - name: py_compile
-        run: |
-          for f in apps/spond_tracker/*.py; do
-            python -m py_compile "$f"
-          done
-
   pytest:
     name: pytest
     runs-on: ubuntu-latest
@@ -95,9 +81,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Install runtime + dev dependencies
-        # Runtime deps are needed because the tests import the modules
-        # under test, which `from croniter import croniter` etc.
-        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
       - name: pytest
         run: pytest

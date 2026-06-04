@@ -27,16 +27,16 @@ to decide the next semver bump and to generate `CHANGELOG.md` entries.
 Examples:
 
 ```
-feat: add configurable timezone via apps.yaml
+feat: add reauthentication flow
 
-fix(ics): preserve historic events with timezone-naive DTSTART
+fix: mark entities unavailable when coordinator poll fails
 
-docs(readme): clarify how to find config_entry_id
+docs(readme): add troubleshooting section
 
-refactor!: rename sensor.spond_<name>_oppgaver to _tasks
+refactor!: rename canonical matching to use last-name token
 
-BREAKING CHANGE: dashboards, automations, and templates referencing
-the old entity_id must be updated.
+BREAKING CHANGE: stored member canonicals may change for members
+with compound first names; re-select members in options flow.
 ```
 
 The body and footer are free-form; only the prefix (and the optional `!`
@@ -54,19 +54,23 @@ or `BREAKING CHANGE:` marker) drive automation.
 
 There is no manual `gh release create` step.
 
-## Local checks
+## Local development
 
-Before pushing, run the same commands CI runs:
+```bash
+git clone https://github.com/agjendem/ha-spond-tracker.git
+cd ha-spond-tracker
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+Run the same checks CI runs:
 
 ```bash
 ruff check .
 ruff format --check .
-python -m json.tool apps/spond_tracker/translations/en.json > /dev/null
-python -m json.tool apps/spond_tracker/translations/nb.json > /dev/null
-python -m py_compile apps/spond_tracker/spond_tracker.py
+pytest
 ```
-
-See [README.md → Development](./README.md#development) for venv setup.
 
 ## Pre-commit hooks
 
@@ -92,8 +96,9 @@ on every PR and pushes an auto-fix commit if needed.
 
 ## Adding a translation
 
-1. Copy `apps/spond_tracker/translations/en.json` to a new file named
-   after the BCP-47 language code (e.g. `da.json`, `de.json`, `sv.json`).
+1. Copy `custom_components/spond_tracker/translations/en.json` to a new
+   file named after the BCP-47 language code (e.g. `da.json`, `de.json`,
+   `sv.json`).
 2. Translate every value. Keys must match `en.json` exactly — the
    `lint` workflow fails if any keys are missing or extra.
 3. Open a PR with the prefix `feat(i18n): add <language> translation`.
