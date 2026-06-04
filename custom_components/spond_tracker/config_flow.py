@@ -22,6 +22,7 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
 )
+from .spond_helpers import members_from_events
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,23 +59,7 @@ async def _validate_and_discover(username: str, password: str) -> list[dict]:
         with contextlib.suppress(Exception):
             await s.clientsession.close()
 
-    persons: dict[str, dict] = {}  # canonical -> {canonical, display_name}
-    for ev in events:
-        recipients = ev.get("recipients") or {}
-        group = recipients.get("group") or {}
-        members_in_event = {m["id"]: m for m in (group.get("members") or [])}
-        for mid in ev.get("behalfOfIds") or []:
-            mem = members_in_event.get(mid)
-            if not mem:
-                continue
-            first_name = (mem.get("firstName") or "").strip()
-            last_name = (mem.get("lastName") or "").strip()
-            canonical = first_name.split()[0].lower() if first_name else mid[:8].lower()
-            if canonical not in persons:
-                display_name = f"{first_name} {last_name}".strip() or canonical.title()
-                persons[canonical] = {"canonical": canonical, "display_name": display_name}
-
-    return sorted(persons.values(), key=lambda m: m["display_name"])
+    return members_from_events(events)
 
 
 class SpondTrackerConfigFlow(ConfigFlow, domain=DOMAIN):

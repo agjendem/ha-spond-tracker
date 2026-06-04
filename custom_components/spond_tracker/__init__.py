@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import CONF_ACCOUNTS, CONF_MEMBERS, CONF_PASSWORD, CONF_USERNAME, DOMAIN, PLATFORMS
 from .coordinator import SpondDataUpdateCoordinator
+from .spond_helpers import dedup_members_by_first_token
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,15 +18,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Deduplicate members by first-name prefix: "mathias" and "mathias_g"
         # both collapse to canonical "mathias" (the v1 code used member-ID
         # dedup so the same child in two groups could produce two entries).
-        seen: set[str] = set()
-        deduped_members: list[dict] = []
-        for m in entry.data.get(CONF_MEMBERS, []):
-            first_token = m["canonical"].split("_")[0]
-            if first_token not in seen:
-                seen.add(first_token)
-                deduped_members.append(
-                    {"canonical": first_token, "display_name": m["display_name"]}
-                )
+        deduped_members = dedup_members_by_first_token(entry.data.get(CONF_MEMBERS, []))
 
         new_data = {
             CONF_ACCOUNTS: [

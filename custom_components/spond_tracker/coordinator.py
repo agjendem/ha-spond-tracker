@@ -20,7 +20,7 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
 )
-from .spond_helpers import event_fingerprint
+from .spond_helpers import event_fingerprint, process_raw_events
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -99,151 +99,9 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 with contextlib.suppress(Exception):
                     await s.clientsession.close()
 
-            for ev in raw_events:
-                ev_id = ev.get("id")
-                recipients = ev.get("recipients") or {}
-                group = recipients.get("group") or {}
-                members_in_event = {m.get("id"): m for m in (group.get("members") or [])}
-                behalfof_ids = ev.get("behalfOfIds") or []
-
-                tasks_block = ev.get("tasks") or {}
-                all_tasks_raw = (tasks_block.get("openTasks") or []) + (
-                    tasks_block.get("assignedTasks") or []
-                )
-
-                # --- Tasks: match assignees to tracked members by first name ---
-                for t in all_tasks_raw:
-                    task_name = t.get("name", "?")
-                    assignments = t.get("assignments") or {}
-                    assigned_ids = assignments.get("memberIds") or t.get("memberIds") or []
-                    required = assignments.get("required") or t.get("required") or 0
-
-                    for aid in assigned_ids:
-                        am = members_in_event.get(aid)
-                        if not am:
-                            continue
-                        fn = (am.get("firstName") or "").strip()
-                        canonical = fn.split()[0].lower() if fn else ""
-                        if canonical not in canonical_names:
-                            continue
-                        task_uid_key = f"{ev_id}::{task_name}"
-                        if task_uid_key in tasks_per_member[canonical]:
-                            continue
-                        co_assignees = []
-                        for other_id in assigned_ids:
-                            if other_id == aid:
-                                continue
-                            om = members_in_event.get(other_id)
-                            if om:
-                                ofn = (om.get("firstName") or "").split()[0]
-                                oln = (om.get("lastName") or "").split()[0]
-                                co_assignees.append(f"{ofn} {oln}".strip() or "?")
-                        tasks_per_member[canonical][task_uid_key] = {
-                            "task_uid_key": task_uid_key,
-                            "event_uid": ev_id,
-                            "task_name": task_name,
-                            "event_title": ev.get("heading", "?"),
-                            "start": ev.get("startTimestamp"),
-                            "end": ev.get("endTimestamp"),
-                            "location": ((ev.get("location") or {}).get("feature") or ""),
-                            "address": ((ev.get("location") or {}).get("address") or ""),
-                            "required": required,
-                            "assigned_count": len(assigned_ids),
-                            "co_assignees": co_assignees,
-                            "cancelled": bool(ev.get("cancelled")),
-                        }
-
-                # --- Events: match behalfOfIds to tracked members by first name ---
-                responses = ev.get("responses") or {}
-                accepted = set(responses.get("acceptedIds") or [])
-                declined = set(responses.get("declinedIds") or [])
-                waiting = set(responses.get("waitinglistIds") or [])
-                unanswered = set(responses.get("unansweredIds") or [])
-
-                for mem_id in behalfof_ids:
-                    mem = members_in_event.get(mem_id)
-                    if not mem:
-                        continue
-                    fn_full = (mem.get("firstName") or "").strip()
-                    canonical = fn_full.split()[0].lower() if fn_full else ""
-                    if canonical not in canonical_names:
-                        continue
-                    if ev_id in seen_uids[canonical]:
-                        continue  # already seen from another account or group
-                    seen_uids[canonical].add(ev_id)
-
-                    if ev.get("cancelled"):
-                        status = "cancelled"
-                    elif mem_id in accepted:
-                        status = "accepted"
-                    elif mem_id in declined:
-                        status = "declined"
-                    elif mem_id in waiting:
-                        status = "waitinglist"
-                    elif mem_id in unanswered:
-                        status = "unanswered"
-                    else:
-                        status = "unknown"
-
-                    ln = (mem.get("lastName") or "").strip()
-                    self_name = f"{fn_full.split()[0]} {ln.split()[0]}".strip() if fn_full else ""
-
-                    my_tasks: list[dict] = []
-                    all_tasks_detail: list[dict] = []
-                    open_tasks_count = 0
-
-                    for t in all_tasks_raw:
-                        task_name = t.get("name", "?")
-                        assignments = t.get("assignments") or {}
-                        assigned_ids = assignments.get("memberIds") or t.get("memberIds") or []
-                        required = assignments.get("required") or t.get("required") or 0
-                        adults_only = t.get("adultsOnly", False)
-
-                        assignee_names = []
-                        for aid in assigned_ids:
-                            am = members_in_event.get(aid)
-                            if am:
-                                fn = (am.get("firstName") or "").split()[0]
-                                ln_a = (am.get("lastName") or "").split()[0]
-                                assignee_names.append(f"{fn} {ln_a}".strip() or "?")
-
-                        if mem_id in assigned_ids:
-                            my_tasks.append(
-                                {
-                                    "name": task_name,
-                                    "co_assignees": [n for n in assignee_names if n != self_name],
-                                    "required": required,
-                                    "assigned_count": len(assigned_ids),
-                                }
-                            )
-
-                        is_open = bool(required and len(assigned_ids) < required)
-                        if is_open:
-                            open_tasks_count += 1
-                        all_tasks_detail.append(
-                            {
-                                "name": task_name,
-                                "assigned": assignee_names,
-                                "required": required,
-                                "is_open": is_open,
-                                "adults_only": adults_only,
-                            }
-                        )
-
-                    events_per_member[canonical].append(
-                        {
-                            "uid": ev_id,
-                            "title": ev.get("heading", "Spond"),
-                            "start": ev.get("startTimestamp"),
-                            "end": ev.get("endTimestamp"),
-                            "location": ((ev.get("location") or {}).get("feature") or ""),
-                            "address": ((ev.get("location") or {}).get("address") or ""),
-                            "status": status,
-                            "my_tasks": my_tasks,
-                            "all_tasks": all_tasks_detail,
-                            "open_tasks_count": open_tasks_count,
-                        }
-                    )
+            process_raw_events(
+                raw_events, canonical_names, seen_uids, events_per_member, tasks_per_member
+            )
 
         if not any_success and accounts:
             raise UpdateFailed("All Spond accounts failed to fetch events")
