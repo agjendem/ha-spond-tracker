@@ -124,6 +124,23 @@ notifications without writing automation YAML. Import via the badges below:
 
 [![Import: task reminder](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_task_reminder.yaml) **task reminder (N min before task)**
 
+## Recorder / history
+
+Sensor attributes (`today_events`, `upcoming_events`, `tasks`) contain full
+event dicts and grow with the number of events. If you don't need history for
+these attributes, exclude them in `configuration.yaml` to keep your database
+small:
+
+```yaml
+recorder:
+  exclude:
+    entity_globs:
+      - sensor.spond_*
+```
+
+To keep the numeric state but skip the large attributes, use
+`exclude_attributes` (available in HA 2024.2+).
+
 ## Troubleshooting
 
 - **No events appearing** — check HA logs (Settings → System → Logs) for
