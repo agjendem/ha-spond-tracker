@@ -452,3 +452,53 @@ async def test_reauth_single_account_prefills_username(hass, config_entry):
     schema_keys = list(result["data_schema"].schema.keys())
     username_key = next(k for k in schema_keys if str(k) == CONF_USERNAME)
     assert username_key.default() == "user@example.com"
+
+
+# ── ReconfigureFlow ───────────────────────────────────────────────────────────
+
+
+async def test_reconfigure_shows_form(hass, config_entry):
+    """Reconfigure flow shows the reconfigure form."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": config_entry.entry_id},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+
+async def test_reconfigure_invalid_auth(hass, config_entry):
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": config_entry.entry_id},
+    )
+    with patch(
+        "custom_components.spond_tracker.config_flow._validate_and_discover",
+        side_effect=InvalidAuth("bad"),
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_USERNAME: "user@example.com", CONF_PASSWORD: "wrong"},
+        )
+    assert result2["type"] == FlowResultType.FORM
+    assert result2["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reconfigure_success_updates_password(hass, config_entry, mock_setup_entry):
+    """Successful reconfigure updates the account password."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "reconfigure", "entry_id": config_entry.entry_id},
+    )
+    with patch(
+        "custom_components.spond_tracker.config_flow._validate_and_discover",
+        return_value=MOCK_MEMBERS,
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_USERNAME: "user@example.com", CONF_PASSWORD: "brandnew"},
+        )
+    assert result2["type"] == FlowResultType.ABORT
+    assert result2["reason"] == "reconfigure_successful"
+    updated = hass.config_entries.async_get_entry(config_entry.entry_id)
+    assert updated.data[CONF_ACCOUNTS][0][CONF_PASSWORD] == "brandnew"

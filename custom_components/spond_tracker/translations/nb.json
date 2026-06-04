@@ -5,7 +5,7 @@
         "title": "Spond-konto",
         "description": "Skriv inn brukernavn og passord for Spond-kontoen din.",
         "data": {
-          "username": "E-postadresse",
+          "username": "E-post eller telefonnummer",
           "password": "Passord"
         }
       },
@@ -16,22 +16,31 @@
           "members": "Medlemmer å spore"
         }
       },
+      "reconfigure": {
+        "title": "Rekonfigurer Spond-konto",
+        "description": "Oppdater påloggingsopplysningene for en konfigurert Spond-konto.",
+        "data": {
+          "username": "E-post eller telefonnummer",
+          "password": "Nytt passord"
+        }
+      },
       "reauth_confirm": {
         "title": "Autentiser Spond på nytt",
         "description": "En eller flere kontoer mislyktes med autentisering. Skriv inn nye påloggingsopplysninger for kontoen som må oppdateres.\n\nKonfigurerte kontoer:{accounts}",
         "data": {
-          "username": "E-postadresse",
+          "username": "E-post eller telefonnummer",
           "password": "Nytt passord"
         }
       }
     },
     "error": {
-      "invalid_auth": "Ugyldig e-postadresse eller passord.",
+      "invalid_auth": "Ugyldig e-post/telefonnummer eller passord.",
       "cannot_connect": "Kunne ikke koble til Spond. Sjekk internettforbindelsen og prøv igjen."
     },
     "abort": {
       "already_configured": "Denne Spond-kontoen er allerede konfigurert.",
-      "reauth_successful": "Autentisering var vellykket."
+      "reauth_successful": "Autentisering var vellykket.",
+      "reconfigure_successful": "Konfigurasjonen ble oppdatert."
     }
   },
   "options": {
@@ -48,7 +57,7 @@
         "title": "Legg til Spond-konto",
         "description": "Skriv inn påloggingsinfo for en ekstra Spond-konto. Medlemmer som finnes vil bli slått sammen med eksisterende.",
         "data": {
-          "username": "E-postadresse",
+          "username": "E-post eller telefonnummer",
           "password": "Passord"
         }
       },
