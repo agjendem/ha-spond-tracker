@@ -104,9 +104,15 @@
     "status_unknown": "Unknown",
     "status_cancelled": "Cancelled"
   },
-  "sensors": {
-    "events_friendly": "Spond {name}",
-    "tasks_friendly": "Spond tasks {name}"
+  "entity": {
+    "sensor": {
+      "events": {
+        "name": "Spond {name}"
+      },
+      "tasks": {
+        "name": "Spond tasks {name}"
+      }
+    }
   },
   "selector": {
     "action": {

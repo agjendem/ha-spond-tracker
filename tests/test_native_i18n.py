@@ -49,7 +49,7 @@ class TestNativeLoadTranslations:
         data, resolved = native_load_translations(NATIVE_TRANSLATIONS_DIR, "en")
         assert resolved == "en"
         assert "calendar" in data
-        assert "sensors" in data
+        assert "entity" in data
 
     def test_nb_loads(self) -> None:
         data, resolved = native_load_translations(NATIVE_TRANSLATIONS_DIR, "nb")
@@ -149,16 +149,16 @@ class TestNativeSensorKeys:
     @pytest.mark.parametrize("lang", ["en", "nb"])
     def test_sensor_keys_present(self, lang: str) -> None:
         data = _load_json(lang)
-        sensors = data.get("sensors", {})
-        assert "events_friendly" in sensors, f"{lang}: missing sensors.events_friendly"
-        assert "tasks_friendly" in sensors, f"{lang}: missing sensors.tasks_friendly"
+        sensor_entity = data.get("entity", {}).get("sensor", {})
+        assert "events" in sensor_entity, f"{lang}: missing entity.sensor.events"
+        assert "tasks" in sensor_entity, f"{lang}: missing entity.sensor.tasks"
 
     @pytest.mark.parametrize("lang", ["en", "nb"])
     def test_sensor_templates_contain_name_placeholder(self, lang: str) -> None:
         data = _load_json(lang)
-        sensors = data["sensors"]
-        assert "{name}" in sensors["events_friendly"]
-        assert "{name}" in sensors["tasks_friendly"]
+        sensor_entity = data["entity"]["sensor"]
+        assert "{name}" in sensor_entity["events"]["name"]
+        assert "{name}" in sensor_entity["tasks"]["name"]
 
 
 # ── TestNativeConfigFlowKeys ──────────────────────────────────────────────────
