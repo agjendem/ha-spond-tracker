@@ -27,3 +27,4 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -q"
+asyncio_mode = "auto"

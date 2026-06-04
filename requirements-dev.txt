@@ -2,5 +2,6 @@
 # Install into a virtualenv: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements-dev.txt`.
 
 ruff==0.15.15
-pytest==9.0.3
 pre-commit==4.6.0
+spond==1.2.1
+pytest-homeassistant-custom-component==0.13.109
