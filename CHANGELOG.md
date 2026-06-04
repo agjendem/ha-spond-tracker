@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.4.0...v0.5.0) (2026-06-04)
+
+
+### Features
+
+* add config flow tests; fix OptionsFlow config_entry compat ([48b7f25](https://github.com/agjendem/ha-spond-tracker/commit/48b7f251f60301b98e6caf3f0b8927f4254b209d))
+* add DeviceInfo to group entities per tracked member ([e780b63](https://github.com/agjendem/ha-spond-tracker/commit/e780b63e0882451d1df0cf0e63241ca0a9a65b01))
+* add diagnostics platform and reconfiguration flow ([063a20c](https://github.com/agjendem/ha-spond-tracker/commit/063a20c3dd5684a5c934f8b313859e3e04352fd4))
+* add native Home Assistant integration (custom_components) ([d926a59](https://github.com/agjendem/ha-spond-tracker/commit/d926a59976975db6c565a0cdfd15c79625f05b12))
+* add reauthentication flow (Silver IQS) ([bf9d52f](https://github.com/agjendem/ha-spond-tracker/commit/bf9d52f097b57aa5eb5e6f832841e0bdf5cc9ac5))
+* entity-translations, log-when-unavailable, and expanded test coverage ([fe08fef](https://github.com/agjendem/ha-spond-tracker/commit/fe08fef256f1dceeac3a78ba89cae8d7184f3c30))
+* replace AppDaemon app with native HA integration ([f9714e7](https://github.com/agjendem/ha-spond-tracker/commit/f9714e77ce7392094b78528ae82a83fc0d586e4f))
+
+
+### Bug Fixes
+
+* add issue_tracker to manifest and local brand icon ([f233c86](https://github.com/agjendem/ha-spond-tracker/commit/f233c8688c43fa1c60c23f77d5c4469456a1a162))
+* load translations async via executor, cache on coordinator ([dfe0d3d](https://github.com/agjendem/ha-spond-tracker/commit/dfe0d3d16e12a2bf2fe2caa611c39ad668803e71))
+* resolve all ruff lint errors (unused imports, RUF012, RUF059) ([29d1202](https://github.com/agjendem/ha-spond-tracker/commit/29d12023e7ca32cf329fc1584525b58722c746d9))
+
+
+### Documentation
+
+* add recorder.exclude guidance for sensor attributes ([bbf9c01](https://github.com/agjendem/ha-spond-tracker/commit/bbf9c01a1a568c2227417e1e89fbc3517c260793))
+
+
+### Refactoring
+
+* remove AppDaemon-era ICS helpers and v1 legacy fallback ([b28df99](https://github.com/agjendem/ha-spond-tracker/commit/b28df9933715e60085eaa39296b453624ba79ce6))
+* use entry.runtime_data, PARALLEL_UPDATES; add removal docs ([232bccf](https://github.com/agjendem/ha-spond-tracker/commit/232bccfb3be790d715491261fa7df3d2cd95a710))
+
 ## [0.4.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.3.0...v0.4.0) (2026-06-01)
 
 
