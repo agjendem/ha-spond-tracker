@@ -90,7 +90,7 @@ Rule docs base URL: `https://developers.home-assistant.io/docs/core/integration-
 | `reauthentication-flow` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/reauthentication-flow/) | ✅ | `async_step_reauth` + `async_step_reauth_confirm` in config_flow.py |
 | `test-coverage` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/test-coverage/) | ✅ | 172 tests across config_flow, coordinator, sensor, calendar, helpers, i18n |
 
-### Gold — approaching ⚠️
+### Gold — all applicable rules ✅
 
 | Rule | Docs | Status | Notes |
 |------|------|--------|-------|
@@ -113,10 +113,10 @@ Rule docs base URL: `https://developers.home-assistant.io/docs/core/integration-
 | `exception-translations` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/exception-translations/) | ✅ | Error strings in strings.json + translations/*.json |
 | `icon-translations` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/icon-translations/) | ✅ | `icons.json` maps sensor translation keys to mdi icons |
 | `reconfiguration-flow` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/reconfiguration-flow/) | ✅ | `async_step_reconfigure` in config_flow.py |
-| `repair-issues` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/repair-issues/) | ⚠️ | Auth failure triggers reauth flow (implicit), but no explicit `ir.async_create_issue` for persistent poll failures |
+| `repair-issues` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/repair-issues/) | ✅ | `async_create_issue` after 3 consecutive non-auth poll failures; auto-cleared on recovery |
 | `stale-devices` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/stale-devices/) | ✅ N/A | N/A |
 
-**To reach Gold**: add a "Use cases" section in README; consider `ir.async_create_issue` for persistent connection failures.
+**Gold status**: all applicable rules met. Next target would be Platinum (blocked by upstream `spond` library).
 
 ### Platinum — not achievable ❌
 
