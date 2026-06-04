@@ -5,7 +5,7 @@
         "title": "Spond account",
         "description": "Enter your Spond account credentials.",
         "data": {
-          "username": "Email address",
+          "username": "Email or phone number",
           "password": "Password"
         }
       },
@@ -16,11 +16,19 @@
           "members": "Members to track"
         }
       },
+      "reconfigure": {
+        "title": "Reconfigure Spond account",
+        "description": "Update credentials for a configured Spond account.",
+        "data": {
+          "username": "Email or phone number",
+          "password": "New password"
+        }
+      },
       "reauth_confirm": {
         "title": "Re-authenticate Spond",
         "description": "One or more accounts failed to authenticate. Enter new credentials for the account that needs updating.\n\nConfigured accounts:{accounts}",
         "data": {
-          "username": "Email address",
+          "username": "Email or phone number",
           "password": "New password"
         }
       }
@@ -31,7 +39,8 @@
     },
     "abort": {
       "already_configured": "This Spond account is already configured.",
-      "reauth_successful": "Re-authentication was successful."
+      "reauth_successful": "Re-authentication was successful.",
+      "reconfigure_successful": "Configuration updated successfully."
     }
   },
   "options": {
@@ -48,7 +57,7 @@
         "title": "Add Spond account",
         "description": "Enter credentials for an additional Spond account. Members found will be merged with existing members.",
         "data": {
-          "username": "Email address",
+          "username": "Email or phone number",
           "password": "Password"
         }
       },

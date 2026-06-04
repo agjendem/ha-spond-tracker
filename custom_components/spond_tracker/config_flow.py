@@ -190,6 +190,53 @@ class SpondTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> dict:
+        """Allow updating account credentials without removing the integration."""
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        accounts = entry.data.get(CONF_ACCOUNTS, [])
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            username = user_input[CONF_USERNAME]
+            password = user_input[CONF_PASSWORD]
+            try:
+                await _validate_and_discover(username, password)
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected error during reconfigure for %s", username)
+                errors["base"] = "cannot_connect"
+            else:
+                updated_accounts = [
+                    {**acc, CONF_PASSWORD: password} if acc[CONF_USERNAME] == username else acc
+                    for acc in accounts
+                ]
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data={**entry.data, CONF_ACCOUNTS: updated_accounts},
+                    reason="reconfigure_successful",
+                )
+
+        default_username = accounts[0][CONF_USERNAME] if len(accounts) == 1 else vol.UNDEFINED
+        username_field: Any = (
+            vol.In({a[CONF_USERNAME]: a[CONF_USERNAME] for a in accounts})
+            if len(accounts) > 1
+            else str
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME, default=default_username): username_field,
+                    vol.Required(CONF_PASSWORD): str,
+                }
+            ),
+            errors=errors,
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> "SpondTrackerOptionsFlow":
