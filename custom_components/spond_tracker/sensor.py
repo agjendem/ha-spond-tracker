@@ -8,11 +8,12 @@ from datetime import timedelta
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_MEMBERS
+from .const import CONF_MEMBERS, DOMAIN
 from .coordinator import SpondDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,6 +50,12 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_events"
         tmpl = coordinator.strings.get("sensors", {}).get("events_friendly", "Spond {name}")
         self._attr_name = tmpl.format(name=member_cfg["display_name"])
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
+            name=member_cfg["display_name"],
+            manufacturer="Spond",
+            entry_type=DeviceEntryType.SERVICE,
+        )
 
     @property
     def native_value(self) -> int:
@@ -114,6 +121,12 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_tasks"
         tmpl = coordinator.strings.get("sensors", {}).get("tasks_friendly", "Spond tasks {name}")
         self._attr_name = tmpl.format(name=member_cfg["display_name"])
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
+            name=member_cfg["display_name"],
+            manufacturer="Spond",
+            entry_type=DeviceEntryType.SERVICE,
+        )
 
     @property
     def native_value(self) -> int:

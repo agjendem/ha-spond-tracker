@@ -8,10 +8,11 @@ from datetime import UTC, datetime
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_MEMBERS
+from .const import CONF_MEMBERS, DOMAIN
 from .coordinator import SpondDataUpdateCoordinator
 from .spond_helpers import stable_uid_for
 from .spond_i18n import STATUS_EMOJI, TASK_MARKER
@@ -42,6 +43,12 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
         self._canonical = member_cfg["canonical"]
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_calendar"
         self._attr_name = member_cfg["display_name"]
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
+            name=member_cfg["display_name"],
+            manufacturer="Spond",
+            entry_type=DeviceEntryType.SERVICE,
+        )
 
     def _t(self, key: str, **fmt: object) -> str:
         cur: object = self.coordinator.strings
