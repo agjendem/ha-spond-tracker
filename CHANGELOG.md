@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1](https://github.com/agjendem/ha-spond-tracker/compare/v0.7.0...v0.7.1) (2026-06-05)
+
+
+### Documentation
+
+* switch license to GPL-3.0, add unofficial disclaimer ([1e4dc28](https://github.com/agjendem/ha-spond-tracker/commit/1e4dc289ef77e9e81d6ce303cc648c149109bdbc))
+* translate README examples to English and fix prerequisites ([acc0201](https://github.com/agjendem/ha-spond-tracker/commit/acc0201491731881a05dc357946e06b68bff677d))
+* use static MIT badge instead of dynamic GitHub license badge ([2334e77](https://github.com/agjendem/ha-spond-tracker/commit/2334e776ec2cb17c7194e6d1a959c589f3d1d72b))
+
 ## [0.7.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.6.0...v0.7.0) (2026-06-04)
 
 
