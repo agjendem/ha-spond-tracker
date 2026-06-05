@@ -4,9 +4,11 @@
 [![Latest release](https://img.shields.io/github/v/release/agjendem/ha-spond-tracker?display_name=tag&sort=semver)](https://github.com/agjendem/ha-spond-tracker/releases)
 [![Validate](https://github.com/agjendem/ha-spond-tracker/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/agjendem/ha-spond-tracker/actions/workflows/validate.yml)
 [![Lint](https://github.com/agjendem/ha-spond-tracker/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/agjendem/ha-spond-tracker/actions/workflows/lint.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](./LICENSE)
 
-A native Home Assistant integration that syncs [Spond](https://www.spond.com/)
+> **Unofficial integration** — not affiliated with or endorsed by [Spond](https://spond.com).
+
+A native Home Assistant integration that syncs [Spond](https://spond.com)
 events and tasks — one calendar per tracked member, per-member sensors, and
 real-time events on the HA event bus.
 
@@ -342,7 +344,9 @@ release workflow.
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+GPL-3.0 — see [LICENSE](./LICENSE). This project depends on
+[Olen/Spond](https://github.com/Olen/Spond) which is GPL-3.0, so the same
+license applies here.
 
 ## Acknowledgements
 
