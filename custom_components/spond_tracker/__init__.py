@@ -15,8 +15,8 @@ _LOGGER = logging.getLogger(__name__)
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate config entry from v1 (flat credentials) to v2 (accounts list)."""
     if entry.version < 2:
-        # Deduplicate members by first-name prefix: "mathias" and "mathias_g"
-        # both collapse to canonical "mathias" (the v1 code used member-ID
+        # Deduplicate members by first-name prefix: "bob" and "bob_g"
+        # both collapse to canonical "bob" (the v1 code used member-ID
         # dedup so the same child in two groups could produce two entries).
         deduped_members = dedup_members_by_first_token(entry.data.get(CONF_MEMBERS, []))
 
