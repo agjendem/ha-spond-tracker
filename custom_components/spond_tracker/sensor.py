@@ -59,7 +59,6 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
         self._canonical = member_cfg["canonical"]
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_events"
         self._attr_translation_key = "events"
-        self._attr_translation_placeholders = {"name": member_cfg["display_name"]}
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
             name=member_cfg["display_name"],
@@ -130,7 +129,6 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
         self._canonical = member_cfg["canonical"]
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_tasks"
         self._attr_translation_key = "tasks"
-        self._attr_translation_placeholders = {"name": member_cfg["display_name"]}
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
             name=member_cfg["display_name"],

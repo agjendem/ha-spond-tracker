@@ -113,10 +113,10 @@
   "entity": {
     "sensor": {
       "events": {
-        "name": "Spond {name}"
+        "name": "Events today"
       },
       "tasks": {
-        "name": "Spond tasks {name}"
+        "name": "Tasks"
       }
     }
   },
