@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.7.2...v0.8.0) (2026-08-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* Home Assistant 2026.3.0 or newer is now required. Installs on HA 2026.1.x-2026.2.x run Python 3.13 and can no longer load this integration.
+
+### Features
+
+* require Home Assistant 2026.3.0 and target Python 3.14 ([9295417](https://github.com/agjendem/ha-spond-tracker/commit/9295417e7e6122c4d7e8d5e662ac4152e11b1aee))
+
 ## [0.7.2](https://github.com/agjendem/ha-spond-tracker/compare/v0.7.1...v0.7.2) (2026-08-05)
 
 
