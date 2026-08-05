@@ -1,7 +1,7 @@
 {
   "domain": "spond_tracker",
   "name": "Spond Tracker",
-  "version": "2.0.0",
+  "version": "0.8.0",
   "codeowners": ["@agjendem"],
   "config_flow": true,
   "documentation": "https://github.com/agjendem/ha-spond-tracker",
