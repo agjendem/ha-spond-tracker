@@ -42,7 +42,10 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
         self._member = member_cfg
         self._canonical = member_cfg["canonical"]
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{self._canonical}_calendar"
-        self._attr_name = member_cfg["display_name"]
+        # None marks this as the device's primary entity: with _attr_has_entity_name
+        # the friendly name becomes the device name alone. Repeating display_name here
+        # would render it twice ("Alice Smith Alice Smith").
+        self._attr_name = None
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
             name=member_cfg["display_name"],

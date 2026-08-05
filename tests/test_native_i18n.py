@@ -154,11 +154,17 @@ class TestNativeSensorKeys:
         assert "tasks" in sensor_entity, f"{lang}: missing entity.sensor.tasks"
 
     @pytest.mark.parametrize("lang", ["en", "nb"])
-    def test_sensor_templates_contain_name_placeholder(self, lang: str) -> None:
+    def test_sensor_names_carry_no_name_placeholder(self, lang: str) -> None:
+        """Inverted deliberately: this test used to *require* a {name} placeholder.
+
+        That requirement was the bug. Home Assistant already prefixes the device
+        name for has_entity_name entities, so the placeholder rendered the member
+        twice ("Alice Smith Spond Alice Smith").
+        """
         data = _load_json(lang)
         sensor_entity = data["entity"]["sensor"]
-        assert "{name}" in sensor_entity["events"]["name"]
-        assert "{name}" in sensor_entity["tasks"]["name"]
+        assert "{name}" not in sensor_entity["events"]["name"]
+        assert "{name}" not in sensor_entity["tasks"]["name"]
 
 
 # ── TestNativeConfigFlowKeys ──────────────────────────────────────────────────

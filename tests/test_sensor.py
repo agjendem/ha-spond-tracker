@@ -102,7 +102,9 @@ def test_events_sensor_has_translation_key():
     coord = _make_coordinator()
     sensor = SpondEventsSensor(coord, MEMBER)
     assert sensor._attr_translation_key == "events"
-    assert sensor._attr_translation_placeholders == {"name": "Alice Smith"}
+    # No name placeholder: has_entity_name already prefixes the device name,
+    # so injecting it again renders the person twice.
+    assert not getattr(sensor, "_attr_translation_placeholders", None)
 
 
 def test_events_sensor_unique_id():
@@ -277,7 +279,9 @@ def test_tasks_sensor_has_translation_key():
     coord = _make_coordinator()
     sensor = SpondTasksSensor(coord, MEMBER)
     assert sensor._attr_translation_key == "tasks"
-    assert sensor._attr_translation_placeholders == {"name": "Alice Smith"}
+    # No name placeholder: has_entity_name already prefixes the device name,
+    # so injecting it again renders the person twice.
+    assert not getattr(sensor, "_attr_translation_placeholders", None)
 
 
 def test_tasks_sensor_unique_id():
