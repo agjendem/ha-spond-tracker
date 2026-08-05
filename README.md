@@ -53,7 +53,7 @@ Copy `custom_components/spond_tracker/` into your HA config directory under
 
 ## Prerequisites
 
-- Home Assistant 2026.1 or newer
+- Home Assistant 2026.3 or newer (runs on Python 3.14)
 - One or more [Spond](https://spond.com) accounts
 
 ## Configuration
