@@ -1,13 +1,17 @@
 {
   "domain": "spond_tracker",
   "name": "Spond Tracker",
-  "version": "0.8.0",
-  "codeowners": ["@agjendem"],
+  "version": "0.8.1",
+  "codeowners": [
+    "@agjendem"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/agjendem/ha-spond-tracker",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "requirements": ["spond==1.2.1"],
+  "requirements": [
+    "spond==1.2.1"
+  ],
   "homeassistant": "2026.3.0",
   "issue_tracker": "https://github.com/agjendem/ha-spond-tracker/issues",
   "quality_scale": "gold"
