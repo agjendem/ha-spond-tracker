@@ -42,6 +42,22 @@ def member_canonical(mem: dict) -> str:
     return first_name.split()[0].lower() if first_name else ""
 
 
+def device_name_for(display_name: str) -> str:
+    """Device name for a member: "Spond - Alice".
+
+    Entities use has_entity_name, so the device name is the prefix of every
+    friendly name this integration produces. A bare person's name reads
+    ambiguously next to the calendars and sensors other integrations create for
+    the same person, so the source is named first.
+
+    Only the first name is used. Members are already deduplicated by first name
+    (see member_canonical), so first names are unique within one config entry by
+    construction, and the surname only makes every entity name longer.
+    """
+    first = (display_name or "").strip().split()
+    return f"Spond - {first[0]}" if first else "Spond"
+
+
 def members_from_events(events: list[dict]) -> list[dict]:
     """Discover unique trackable members from a list of raw Spond events.
 

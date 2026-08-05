@@ -14,7 +14,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_MEMBERS, DOMAIN
 from .coordinator import SpondDataUpdateCoordinator
-from .spond_helpers import stable_uid_for
+from .spond_helpers import device_name_for, stable_uid_for
 from .spond_i18n import STATUS_EMOJI, TASK_MARKER
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
         self._attr_name = None
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
-            name=member_cfg["display_name"],
+            name=device_name_for(member_cfg["display_name"]),
             manufacturer="Spond",
             entry_type=DeviceEntryType.SERVICE,
         )

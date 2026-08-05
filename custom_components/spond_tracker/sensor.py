@@ -15,6 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import CONF_MEMBERS, DOMAIN
 from .coordinator import SpondDataUpdateCoordinator
+from .spond_helpers import device_name_for
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
         self._attr_translation_key = "events"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
-            name=member_cfg["display_name"],
+            name=device_name_for(member_cfg["display_name"]),
             manufacturer="Spond",
             entry_type=DeviceEntryType.SERVICE,
         )
@@ -131,7 +132,7 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
         self._attr_translation_key = "tasks"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_{self._canonical}")},
-            name=member_cfg["display_name"],
+            name=device_name_for(member_cfg["display_name"]),
             manufacturer="Spond",
             entry_type=DeviceEntryType.SERVICE,
         )
