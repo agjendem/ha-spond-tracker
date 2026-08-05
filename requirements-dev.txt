@@ -1,7 +1,7 @@
 # Development dependencies for working on spond_tracker locally and in CI.
 # Install into a virtualenv: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements-dev.txt`.
 
-ruff==0.15.15
-pre-commit==4.6.0
+ruff==0.16.0
+pre-commit==4.6.1
 spond==1.2.1
-pytest-homeassistant-custom-component==0.13.316
+pytest-homeassistant-custom-component==0.13.348
