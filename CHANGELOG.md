@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1](https://github.com/agjendem/ha-spond-tracker/compare/v0.8.0...v0.8.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* count multi-day events as happening on every day they span ([5ec1bfe](https://github.com/agjendem/ha-spond-tracker/commit/5ec1bfeada7284a3e84edfabfb2ede664d449b28))
+* report the correct integration version in Home Assistant ([4c2dbc2](https://github.com/agjendem/ha-spond-tracker/commit/4c2dbc21cfc4cbeec2a3bda6fa9dc80c21d2f728))
+
 ## [0.8.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.7.2...v0.8.0) (2026-08-05)
 
 
