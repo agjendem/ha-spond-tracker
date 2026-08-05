@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
@@ -19,6 +19,17 @@ from .coordinator import SpondDataUpdateCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 1
+
+
+def _parse_local(value: object) -> datetime | None:
+    """Parse a Spond ISO-8601 timestamp into local time, or None if unusable."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = dt_util.parse_datetime(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt_util.as_local(parsed) if parsed else None
 
 
 async def async_setup_entry(
@@ -56,45 +67,46 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
             entry_type=DeviceEntryType.SERVICE,
         )
 
-    @property
-    def native_value(self) -> int:
+    def _events_today(self) -> list[dict]:
+        """Return the visible events that occur today, in local time.
+
+        Membership is decided by overlap with today, not by start time: an
+        event spanning several days is happening today on every day it
+        covers, not only on the day it began.
+        """
         if self.coordinator.data is None:
-            return 0
+            return []
         now_local = dt_util.now()
         today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
-        count = 0
+
+        today: list[dict] = []
         for ev in self.coordinator.data.events.get(self._canonical, []):
             if ev.get("status") in ("cancelled", "declined"):
                 continue
-            try:
-                start = dt_util.parse_datetime((ev.get("start") or "").replace("Z", "+00:00"))
-                if start is None:
-                    continue
-                start_local = dt_util.as_local(start)
-                if today_start <= start_local < today_end:
-                    count += 1
-            except ValueError, TypeError:
-                pass
-        return count
+            start = _parse_local(ev.get("start"))
+            if start is None:
+                continue
+            end = _parse_local(ev.get("end"))
+            if end is None or end <= start:
+                # No usable end — treat it as happening at a single instant.
+                if today_start <= start < today_end:
+                    today.append(ev)
+            elif start < today_end and end > today_start:
+                today.append(ev)
+        return today
+
+    @property
+    def native_value(self) -> int:
+        return len(self._events_today())
 
     @property
     def extra_state_attributes(self) -> dict:
         if self.coordinator.data is None:
             return {}
-        now_local = dt_util.now()
-        today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
         evs = self.coordinator.data.events.get(self._canonical, [])
         visible = [e for e in evs if e.get("status") not in ("declined", "cancelled")]
-        today_events = []
-        for ev in visible:
-            try:
-                start = dt_util.parse_datetime((ev.get("start") or "").replace("Z", "+00:00"))
-                if start and today_start <= dt_util.as_local(start) < today_end:
-                    today_events.append(ev)
-            except ValueError, TypeError:
-                pass
+        today_events = self._events_today()
         return {
             "today_count": len(today_events),
             "today_events": today_events,
