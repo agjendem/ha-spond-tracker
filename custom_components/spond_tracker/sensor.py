@@ -74,7 +74,7 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
                 start_local = dt_util.as_local(start)
                 if today_start <= start_local < today_end:
                     count += 1
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 pass
         return count
 
@@ -93,7 +93,7 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
                 start = dt_util.parse_datetime((ev.get("start") or "").replace("Z", "+00:00"))
                 if start and today_start <= dt_util.as_local(start) < today_end:
                     today_events.append(ev)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 pass
         return {
             "today_count": len(today_events),
