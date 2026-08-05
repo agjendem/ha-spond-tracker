@@ -50,13 +50,29 @@ def _today_event(status="accepted"):
 
 
 def _yesterday_event():
+    """An event that both started and finished yesterday."""
     return {
         "uid": "evt-yesterday",
         "title": "Old Event",
         "start": YESTERDAY.isoformat(),
-        "end": NOW.isoformat(),
+        "end": (YESTERDAY + timedelta(hours=2)).isoformat(),
         "status": "accepted",
         "location": None,
+        "address": None,
+        "my_tasks": [],
+        "all_tasks": [],
+    }
+
+
+def _multiday_event(start, end, status="accepted"):
+    """An event spanning a range, e.g. a camp running over several days."""
+    return {
+        "uid": "evt-multiday",
+        "title": "Camp",
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "status": status,
+        "location": "Ishall",
         "address": None,
         "my_tasks": [],
         "all_tasks": [],
@@ -105,6 +121,116 @@ def test_events_sensor_counts_todays_events():
 @pytest.mark.freeze_time("2026-06-15 12:00:00")
 def test_events_sensor_excludes_yesterdays_events():
     coord = _make_coordinator(events=[_yesterday_event()])
+    sensor = SpondEventsSensor(coord, MEMBER)
+    assert sensor.native_value == 0
+
+
+# ── Multi-day events ──────────────────────────────────────────────────────────
+#
+# An event is "today" when it *overlaps* today, not when it *starts* today.
+# A camp running Tue-Thu is happening on Wednesday too. Counting by start time
+# made every such event invisible on every day except the one it began.
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_events_sensor_counts_ongoing_multiday_event():
+    """An event that began before today and ends after today still counts."""
+    coord = _make_coordinator(events=[_multiday_event(YESTERDAY, TOMORROW)])
+    sensor = SpondEventsSensor(coord, MEMBER)
+    assert sensor.native_value == 1
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_events_sensor_counts_multiday_event_on_its_final_day():
+    """The closing day of a multi-day event counts, even though it started earlier."""
+    coord = _make_coordinator(events=[_multiday_event(YESTERDAY, NOW + timedelta(hours=3))])
+    sensor = SpondEventsSensor(coord, MEMBER)
+    assert sensor.native_value == 1
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_events_sensor_counts_multiday_event_on_its_first_day():
+    """Starting today and running on for days still counts today."""
+    coord = _make_coordinator(events=[_multiday_event(FUTURE, TOMORROW + timedelta(days=2))])
+    sensor = SpondEventsSensor(coord, MEMBER)
+    assert sensor.native_value == 1
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_events_sensor_excludes_multiday_event_that_ended_before_today():
+    coord = _make_coordinator(
+        events=[_multiday_event(YESTERDAY - timedelta(days=3), YESTERDAY - timedelta(hours=1))]
+    )
+    sensor = SpondEventsSensor(coord, MEMBER)
+    assert sensor.native_value == 0
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_events_sensor_excludes_multiday_event_starting_after_today():
+    coord = _make_coordinator(
+        events=[_multiday_event(TOMORROW + timedelta(hours=1), TOMORROW + timedelta(days=3))]
+    )
+    sensor = SpondEventsSensor(coord, MEMBER)
+    assert sensor.native_value == 0
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_events_sensor_still_excludes_declined_multiday_event():
+    """Overlap must not resurrect events the member declined."""
+    coord = _make_coordinator(events=[_multiday_event(YESTERDAY, TOMORROW, status="declined")])
+    sensor = SpondEventsSensor(coord, MEMBER)
+    assert sensor.native_value == 0
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_ongoing_multiday_event_appears_in_today_events_attribute():
+    """The attribute the dashboards read must agree with the sensor state."""
+    coord = _make_coordinator(events=[_multiday_event(YESTERDAY, TOMORROW)])
+    sensor = SpondEventsSensor(coord, MEMBER)
+    attrs = sensor.extra_state_attributes
+    assert attrs["today_count"] == 1
+    assert [e["uid"] for e in attrs["today_events"]] == ["evt-multiday"]
+    assert attrs["today_count"] == sensor.native_value
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_camp_spanning_yesterday_to_tomorrow_is_visible_today():
+    """Regression: the reported case.
+
+    A camp from 09:00 the day before yesterday until 15:00 tomorrow was
+    reported as 0 events today, while the calendar entity correctly showed it
+    as in progress.
+    """
+    start = datetime(2026, 6, 13, 9, 0, tzinfo=UTC)
+    end = datetime(2026, 6, 16, 15, 0, tzinfo=UTC)
+    coord = _make_coordinator(events=[_multiday_event(start, end)])
+    sensor = SpondEventsSensor(coord, MEMBER)
+
+    assert sensor.native_value == 1
+    assert sensor.extra_state_attributes["today_count"] == 1
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_events_sensor_counts_event_without_end_on_its_start_day():
+    """An event with no usable end is treated as happening at a single instant."""
+    ev = _multiday_event(FUTURE, TOMORROW)
+    ev["end"] = None
+    coord = _make_coordinator(events=[ev])
+    sensor = SpondEventsSensor(coord, MEMBER)
+    assert sensor.native_value == 1
+
+    ev_yesterday = _multiday_event(YESTERDAY, TOMORROW)
+    ev_yesterday["end"] = None
+    coord = _make_coordinator(events=[ev_yesterday])
+    sensor = SpondEventsSensor(coord, MEMBER)
+    assert sensor.native_value == 0
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_events_sensor_ignores_unparseable_timestamps():
+    ev = _multiday_event(YESTERDAY, TOMORROW)
+    ev["start"] = "not a timestamp"
+    coord = _make_coordinator(events=[ev])
     sensor = SpondEventsSensor(coord, MEMBER)
     assert sensor.native_value == 0
 
