@@ -71,8 +71,8 @@ def dedup_members_by_first_token(members: list[dict]) -> list[dict]:
     """Collapse members whose canonical shares the same first underscore-token.
 
     Used during v1→v2 migration when the old code stored separate entries for
-    the same child across groups (e.g. "mathias" and "mathias_g" both collapse
-    to "mathias").  The first occurrence's display_name is kept.
+    the same child across groups (e.g. "bob" and "bob_g" both collapse
+    to "bob").  The first occurrence's display_name is kept.
     """
     seen: set[str] = set()
     result: list[dict] = []

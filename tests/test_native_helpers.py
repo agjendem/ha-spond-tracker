@@ -93,7 +93,7 @@ def _fresh_state(*canonicals: str) -> tuple:
 
 class TestMemberCanonical:
     def test_simple_first_name(self) -> None:
-        assert member_canonical({"firstName": "Sivert"}) == "sivert"
+        assert member_canonical({"firstName": "Alice"}) == "alice"
 
     def test_lowercased(self) -> None:
         assert member_canonical({"firstName": "ANNA"}) == "anna"
@@ -125,24 +125,24 @@ class TestMembersFromEvents:
         assert members_from_events([]) == []
 
     def test_single_member(self) -> None:
-        events = [_make_event("e1", "m1", "Sivert", "Gjendem")]
+        events = [_make_event("e1", "m1", "Alice", "Smith")]
         result = members_from_events(events)
         assert len(result) == 1
-        assert result[0] == {"canonical": "sivert", "display_name": "Sivert Gjendem"}
+        assert result[0] == {"canonical": "alice", "display_name": "Alice Smith"}
 
     def test_same_child_two_events_deduped(self) -> None:
-        ev1 = _make_event("e1", "m1a", "Sivert", "Gjendem")
-        ev2 = _make_event("e2", "m1b", "Sivert", "Gjendem")
+        ev1 = _make_event("e1", "m1a", "Alice", "Smith")
+        ev2 = _make_event("e2", "m1b", "Alice", "Smith")
         # Different member IDs but same first name → one canonical
         result = members_from_events([ev1, ev2])
         assert len(result) == 1
-        assert result[0]["canonical"] == "sivert"
+        assert result[0]["canonical"] == "alice"
 
     def test_two_different_children(self) -> None:
-        ev1 = _make_event("e1", "m1", "Sivert", "G")
-        ev2 = _make_event("e2", "m2", "Mathias", "G")
+        ev1 = _make_event("e1", "m1", "Alice", "G")
+        ev2 = _make_event("e2", "m2", "Bob", "G")
         result = members_from_events([ev1, ev2])
-        assert {r["canonical"] for r in result} == {"sivert", "mathias"}
+        assert {r["canonical"] for r in result} == {"alice", "bob"}
 
     def test_sorted_by_display_name(self) -> None:
         events = [
@@ -155,12 +155,12 @@ class TestMembersFromEvents:
 
     def test_member_not_in_behalf_of_ids_skipped(self) -> None:
         # If behalfOfIds is empty, no members discovered
-        ev = _make_event("e1", "m1", "Sivert")
+        ev = _make_event("e1", "m1", "Alice")
         ev["behalfOfIds"] = []
         assert members_from_events([ev]) == []
 
     def test_behalf_id_not_in_group_members_skipped(self) -> None:
-        ev = _make_event("e1", "m1", "Sivert")
+        ev = _make_event("e1", "m1", "Alice")
         ev["behalfOfIds"] = ["unknown-id"]
         assert members_from_events([ev]) == []
 
@@ -171,9 +171,9 @@ class TestMembersFromEvents:
         assert result[0]["canonical"] == "abcdef12"[:8].lower()
 
     def test_display_name_strips_trailing_space_when_no_last_name(self) -> None:
-        ev = _make_event("e1", "m1", "Sivert", "")
+        ev = _make_event("e1", "m1", "Alice", "")
         result = members_from_events([ev])
-        assert result[0]["display_name"] == "Sivert"
+        assert result[0]["display_name"] == "Alice"
 
     def test_multi_word_first_name_canonical_is_first_token(self) -> None:
         ev = _make_event("e1", "m1", "Jan Erik", "Olsen")
@@ -190,32 +190,32 @@ class TestDedupMembersByFirstToken:
 
     def test_no_duplicates_unchanged(self) -> None:
         members = [
-            {"canonical": "sivert", "display_name": "Sivert G."},
-            {"canonical": "mathias", "display_name": "Mathias G."},
+            {"canonical": "alice", "display_name": "Alice G."},
+            {"canonical": "bob", "display_name": "Bob G."},
         ]
         result = dedup_members_by_first_token(members)
         assert len(result) == 2
-        assert {r["canonical"] for r in result} == {"sivert", "mathias"}
+        assert {r["canonical"] for r in result} == {"alice", "bob"}
 
     def test_duplicate_collapses_to_first_occurrence(self) -> None:
         members = [
-            {"canonical": "mathias", "display_name": "Mathias G."},
-            {"canonical": "mathias_g", "display_name": "Mathias G. (2)"},
+            {"canonical": "bob", "display_name": "Bob G."},
+            {"canonical": "bob_g", "display_name": "Bob G. (2)"},
         ]
         result = dedup_members_by_first_token(members)
         assert len(result) == 1
-        assert result[0]["canonical"] == "mathias"
-        assert result[0]["display_name"] == "Mathias G."
+        assert result[0]["canonical"] == "bob"
+        assert result[0]["display_name"] == "Bob G."
 
     def test_multiple_duplicates(self) -> None:
         members = [
-            {"canonical": "sivert", "display_name": "Sivert A"},
-            {"canonical": "sivert_g", "display_name": "Sivert A (2)"},
-            {"canonical": "sivert_extra", "display_name": "Sivert A (3)"},
+            {"canonical": "alice", "display_name": "Alice A"},
+            {"canonical": "alice_g", "display_name": "Alice A (2)"},
+            {"canonical": "alice_extra", "display_name": "Alice A (3)"},
         ]
         result = dedup_members_by_first_token(members)
         assert len(result) == 1
-        assert result[0]["canonical"] == "sivert"
+        assert result[0]["canonical"] == "alice"
 
     def test_different_first_tokens_both_kept(self) -> None:
         members = [
@@ -249,50 +249,50 @@ class TestProcessRawEvents:
     # ── status mapping ────────────────────────────────────────────────────────
 
     def test_accepted_status(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev = _make_event("e1", "m1", "Sivert", response="accepted")
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1", "Alice", response="accepted")
         process_raw_events([ev], cn, su, epm, tpm)
-        assert epm["sivert"][0]["status"] == "accepted"
+        assert epm["alice"][0]["status"] == "accepted"
 
     def test_declined_status(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev = _make_event("e1", "m1", "Sivert", response="declined")
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1", "Alice", response="declined")
         process_raw_events([ev], cn, su, epm, tpm)
-        assert epm["sivert"][0]["status"] == "declined"
+        assert epm["alice"][0]["status"] == "declined"
 
     def test_waitinglist_status(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev = _make_event("e1", "m1", "Sivert", response="waitinglist")
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1", "Alice", response="waitinglist")
         process_raw_events([ev], cn, su, epm, tpm)
-        assert epm["sivert"][0]["status"] == "waitinglist"
+        assert epm["alice"][0]["status"] == "waitinglist"
 
     def test_unanswered_status(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev = _make_event("e1", "m1", "Sivert", response="unanswered")
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1", "Alice", response="unanswered")
         process_raw_events([ev], cn, su, epm, tpm)
-        assert epm["sivert"][0]["status"] == "unanswered"
+        assert epm["alice"][0]["status"] == "unanswered"
 
     def test_unknown_status_when_not_in_any_response_list(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev = _make_event("e1", "m1", "Sivert", response="none")
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1", "Alice", response="none")
         process_raw_events([ev], cn, su, epm, tpm)
-        assert epm["sivert"][0]["status"] == "unknown"
+        assert epm["alice"][0]["status"] == "unknown"
 
     def test_cancelled_event_overrides_response_status(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
         # accepted in responses but the event itself is cancelled
-        ev = _make_event("e1", "m1", "Sivert", response="accepted", cancelled=True)
+        ev = _make_event("e1", "m1", "Alice", response="accepted", cancelled=True)
         process_raw_events([ev], cn, su, epm, tpm)
-        assert epm["sivert"][0]["status"] == "cancelled"
+        assert epm["alice"][0]["status"] == "cancelled"
 
     # ── event fields ──────────────────────────────────────────────────────────
 
     def test_event_fields_populated(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
         ev = _make_event(
             "e1",
             "m1",
-            "Sivert",
+            "Alice",
             heading="Training",
             start="2026-07-01T08:00:00Z",
             end="2026-07-01T10:00:00Z",
@@ -300,7 +300,7 @@ class TestProcessRawEvents:
             address="Main St 1",
         )
         process_raw_events([ev], cn, su, epm, tpm)
-        e = epm["sivert"][0]
+        e = epm["alice"][0]
         assert e["uid"] == "e1"
         assert e["title"] == "Training"
         assert e["start"] == "2026-07-01T08:00:00Z"
@@ -309,61 +309,61 @@ class TestProcessRawEvents:
         assert e["address"] == "Main St 1"
 
     def test_empty_events_list(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
         process_raw_events([], cn, su, epm, tpm)
-        assert epm["sivert"] == []
+        assert epm["alice"] == []
 
     # ── member filtering ──────────────────────────────────────────────────────
 
     def test_member_not_in_canonical_names_skipped(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev = _make_event("e1", "m2", "Mathias")  # not tracked
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m2", "Bob")  # not tracked
         process_raw_events([ev], cn, su, epm, tpm)
-        assert epm["sivert"] == []
+        assert epm["alice"] == []
 
     def test_member_not_in_group_members_skipped(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev = _make_event("e1", "m1", "Sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1", "Alice")
         ev["behalfOfIds"] = ["unknown-id"]  # not in recipients.group.members
         process_raw_events([ev], cn, su, epm, tpm)
-        assert epm["sivert"] == []
+        assert epm["alice"] == []
 
     def test_two_members_both_tracked(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert", "mathias")
-        ev_s = _make_event("e1", "m1", "Sivert")
-        ev_m = _make_event("e2", "m2", "Mathias")
+        cn, su, epm, tpm = _fresh_state("alice", "bob")
+        ev_s = _make_event("e1", "m1", "Alice")
+        ev_m = _make_event("e2", "m2", "Bob")
         process_raw_events([ev_s, ev_m], cn, su, epm, tpm)
-        assert len(epm["sivert"]) == 1
-        assert len(epm["mathias"]) == 1
+        assert len(epm["alice"]) == 1
+        assert len(epm["bob"]) == 1
 
     # ── cross-account / cross-group deduplication ─────────────────────────────
 
     def test_cross_account_dedup_via_seen_uids(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev = _make_event("e1", "m1", "Sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1", "Alice")
         # Simulate two accounts returning the same event
         process_raw_events([ev], cn, su, epm, tpm)
         process_raw_events([ev], cn, su, epm, tpm)  # second account
         # Must appear only once
-        assert len(epm["sivert"]) == 1
+        assert len(epm["alice"]) == 1
 
     def test_cross_group_dedup_same_event_id_two_member_ids(self) -> None:
         # Same event, member appears in behalfOfIds twice (different group IDs)
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev = _make_event("e1", "m1a", "Sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1a", "Alice")
         # Add a second ID for the same person
         ev["behalfOfIds"] = ["m1a", "m1b"]
-        ev["recipients"]["group"]["members"].append(_make_member("m1b", "Sivert", "G"))
+        ev["recipients"]["group"]["members"].append(_make_member("m1b", "Alice", "G"))
         ev["responses"]["acceptedIds"] = ["m1a", "m1b"]
         process_raw_events([ev], cn, su, epm, tpm)
-        assert len(epm["sivert"]) == 1
+        assert len(epm["alice"]) == 1
 
     def test_different_events_both_added(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        ev1 = _make_event("e1", "m1", "Sivert")
-        ev2 = _make_event("e2", "m1", "Sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev1 = _make_event("e1", "m1", "Alice")
+        ev2 = _make_event("e2", "m1", "Alice")
         process_raw_events([ev1, ev2], cn, su, epm, tpm)
-        assert len(epm["sivert"]) == 2
+        assert len(epm["alice"]) == 2
 
     # ── tasks ─────────────────────────────────────────────────────────────────
 
@@ -374,88 +374,88 @@ class TestProcessRawEvents:
         }
 
     def test_task_assigned_to_tracked_member(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
         task = self._task("Drive", ["m1"], required=1)
-        ev = _make_event("e1", "m1", "Sivert", "G", assigned_tasks=[task])
+        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
         process_raw_events([ev], cn, su, epm, tpm)
-        assert "e1::Drive" in tpm["sivert"]
-        t = tpm["sivert"]["e1::Drive"]
+        assert "e1::Drive" in tpm["alice"]
+        t = tpm["alice"]["e1::Drive"]
         assert t["task_name"] == "Drive"
         assert t["required"] == 1
         assert t["assigned_count"] == 1
 
     def test_task_not_assigned_to_untracked_member(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        task = self._task("Drive", ["m2"], required=1)  # m2 = Mathias, not tracked
-        ev = _make_event("e1", "m1", "Sivert")
-        ev["recipients"]["group"]["members"].append(_make_member("m2", "Mathias"))
+        cn, su, epm, tpm = _fresh_state("alice")
+        task = self._task("Drive", ["m2"], required=1)  # m2 = Bob, not tracked
+        ev = _make_event("e1", "m1", "Alice")
+        ev["recipients"]["group"]["members"].append(_make_member("m2", "Bob"))
         ev["tasks"]["assignedTasks"] = [task]
         process_raw_events([ev], cn, su, epm, tpm)
-        assert tpm["sivert"] == {}
+        assert tpm["alice"] == {}
 
     def test_task_dedup_across_accounts(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
         task = self._task("Drive", ["m1"])
-        ev = _make_event("e1", "m1", "Sivert", assigned_tasks=[task])
+        ev = _make_event("e1", "m1", "Alice", assigned_tasks=[task])
         process_raw_events([ev], cn, su, epm, tpm)
         process_raw_events([ev], cn, su, epm, tpm)  # same event from second account
-        assert len(tpm["sivert"]) == 1
+        assert len(tpm["alice"]) == 1
 
     def test_co_assignees_populated(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        # Sivert (m1) and Mathias (m2) both assigned to the same task
+        cn, su, epm, tpm = _fresh_state("alice")
+        # Alice (m1) and Bob (m2) both assigned to the same task
         task = {"name": "Setup", "assignments": {"memberIds": ["m1", "m2"], "required": 2}}
-        ev = _make_event("e1", "m1", "Sivert", "Gjendem", assigned_tasks=[task])
-        ev["recipients"]["group"]["members"].append(_make_member("m2", "Mathias", "G"))
+        ev = _make_event("e1", "m1", "Alice", "Smith", assigned_tasks=[task])
+        ev["recipients"]["group"]["members"].append(_make_member("m2", "Bob", "G"))
         process_raw_events([ev], cn, su, epm, tpm)
-        t = tpm["sivert"]["e1::Setup"]
-        assert t["co_assignees"] == ["Mathias G"]
+        t = tpm["alice"]["e1::Setup"]
+        assert t["co_assignees"] == ["Bob G"]
 
     def test_my_tasks_populated_in_event(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
         task = self._task("Drive", ["m1"], required=1)
-        ev = _make_event("e1", "m1", "Sivert", "G", assigned_tasks=[task])
+        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
         process_raw_events([ev], cn, su, epm, tpm)
-        e = epm["sivert"][0]
+        e = epm["alice"][0]
         assert len(e["my_tasks"]) == 1
         assert e["my_tasks"][0]["name"] == "Drive"
 
     def test_my_tasks_excludes_self_from_co_assignees(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
         task = {"name": "Setup", "assignments": {"memberIds": ["m1", "m2"], "required": 2}}
-        ev = _make_event("e1", "m1", "Sivert", "G", assigned_tasks=[task])
+        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
         ev["recipients"]["group"]["members"].append(_make_member("m2", "Anna", "P"))
         process_raw_events([ev], cn, su, epm, tpm)
-        e = epm["sivert"][0]
+        e = epm["alice"][0]
         my_task = e["my_tasks"][0]
-        assert "Sivert G" not in my_task["co_assignees"]
+        assert "Alice G" not in my_task["co_assignees"]
         assert "Anna P" in my_task["co_assignees"]
 
     def test_open_task_counted(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
         # Task needs 2 people but only 1 assigned → open
         task = self._task("Setup", ["m1"], required=2)
-        ev = _make_event("e1", "m1", "Sivert", assigned_tasks=[task])
+        ev = _make_event("e1", "m1", "Alice", assigned_tasks=[task])
         process_raw_events([ev], cn, su, epm, tpm)
-        assert epm["sivert"][0]["open_tasks_count"] == 1
+        assert epm["alice"][0]["open_tasks_count"] == 1
 
     def test_all_tasks_detail_includes_non_my_tasks(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
-        # m2=Mathias assigned to a task; Sivert is only behalfOf, not assigned
+        cn, su, epm, tpm = _fresh_state("alice")
+        # m2=Bob assigned to a task; Alice is only behalfOf, not assigned
         task = self._task("Cook", ["m2"], required=1)
-        ev = _make_event("e1", "m1", "Sivert")
-        ev["recipients"]["group"]["members"].append(_make_member("m2", "Mathias", "G"))
+        ev = _make_event("e1", "m1", "Alice")
+        ev["recipients"]["group"]["members"].append(_make_member("m2", "Bob", "G"))
         ev["tasks"]["assignedTasks"] = [task]
         process_raw_events([ev], cn, su, epm, tpm)
-        e = epm["sivert"][0]
+        e = epm["alice"][0]
         assert e["my_tasks"] == []
         assert len(e["all_tasks"]) == 1
         assert e["all_tasks"][0]["name"] == "Cook"
 
     def test_cancelled_task_event_field_set(self) -> None:
-        cn, su, epm, tpm = _fresh_state("sivert")
+        cn, su, epm, tpm = _fresh_state("alice")
         task = self._task("Drive", ["m1"])
-        ev = _make_event("e1", "m1", "Sivert", assigned_tasks=[task], cancelled=True)
+        ev = _make_event("e1", "m1", "Alice", assigned_tasks=[task], cancelled=True)
         process_raw_events([ev], cn, su, epm, tpm)
-        t = tpm["sivert"]["e1::Drive"]
+        t = tpm["alice"]["e1::Drive"]
         assert t["cancelled"] is True
