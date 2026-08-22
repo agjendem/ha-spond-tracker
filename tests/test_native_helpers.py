@@ -20,6 +20,9 @@ member_canonical = _mod.member_canonical
 members_from_events = _mod.members_from_events
 dedup_members_by_first_token = _mod.dedup_members_by_first_token
 process_raw_events = _mod.process_raw_events
+people_in_event = _mod.people_in_event
+task_view = _mod.task_view
+event_fingerprint = _mod.event_fingerprint
 
 
 # ── helpers shared across test classes ───────────────────────────────────────
@@ -164,11 +167,20 @@ class TestMembersFromEvents:
         ev["behalfOfIds"] = ["unknown-id"]
         assert members_from_events([ev]) == []
 
-    def test_fallback_canonical_from_member_id_when_no_first_name(self) -> None:
+    def test_member_without_first_name_is_skipped(self) -> None:
+        """A nameless member cannot be shown or matched, so it is not offered."""
         ev = _make_event("e1", "abcdef12", "", "")
+        assert members_from_events([ev]) == []
+
+    def test_adult_found_via_recipients_profiles(self) -> None:
+        """Adults live in recipients.profiles, not on the group roster."""
+        ev = _make_event("e1", "m1", "Alice", "Smith")
+        ev["recipients"]["profiles"] = [
+            {"id": "p1", "firstName": "Carol", "lastName": "Smith", "profileId": "prof-1"}
+        ]
+        ev["behalfOfIds"] = ["m1", "p1"]
         result = members_from_events([ev])
-        assert len(result) == 1
-        assert result[0]["canonical"] == "abcdef12"[:8].lower()
+        assert [m["canonical"] for m in result] == ["alice", "carol"]
 
     def test_display_name_strips_trailing_space_when_no_last_name(self) -> None:
         ev = _make_event("e1", "m1", "Alice", "")
@@ -367,95 +379,265 @@ class TestProcessRawEvents:
 
     # ── tasks ─────────────────────────────────────────────────────────────────
 
-    def _task(self, name: str, member_ids: list, required: int = 0) -> dict:
+    def _open_task(self, name: str, accepted: list, limit: int = 1) -> dict:
+        """An OPEN task: `limit` slots, anyone may sign up. Real Spond shape."""
         return {
+            "id": f"t-{name}",
             "name": name,
-            "assignments": {"memberIds": member_ids, "required": required},
+            "type": "OPEN",
+            "adultsOnly": False,
+            "limit": limit,
+            "remaining": max(limit - len(accepted), 0),
+            "accepted": [{"id": i} for i in accepted],
+            "declined": [],
+            "unanswered": [],
         }
 
-    def test_task_assigned_to_tracked_member(self) -> None:
+    def _assigned_task(
+        self,
+        name: str,
+        accepted: list | None = None,
+        declined: list | None = None,
+        unanswered: list | None = None,
+    ) -> dict:
+        """An ASSIGNED task: named people accept, decline or stay silent."""
+        return {
+            "id": f"t-{name}",
+            "name": name,
+            "type": "ASSIGNED",
+            "adultsOnly": True,
+            "accepted": [{"id": i} for i in accepted or []],
+            "declined": [{"id": i} for i in declined or []],
+            "unanswered": list(unanswered or []),
+        }
+
+    def test_open_task_accepted_by_tracked_member(self) -> None:
         cn, su, epm, tpm = _fresh_state("alice")
-        task = self._task("Drive", ["m1"], required=1)
-        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
+        task = self._open_task("Drive", ["m1"], limit=1)
+        ev = _make_event("e1", "m1", "Alice", "G", open_tasks=[task])
         process_raw_events([ev], cn, su, epm, tpm)
-        assert "e1::Drive" in tpm["alice"]
         t = tpm["alice"]["e1::Drive"]
         assert t["task_name"] == "Drive"
+        assert t["status"] == "accepted"
+        assert t["task_type"] == "OPEN"
         assert t["required"] == 1
         assert t["assigned_count"] == 1
 
-    def test_task_not_assigned_to_untracked_member(self) -> None:
+    def test_assigned_task_unanswered_is_still_tracked(self) -> None:
+        """The whole point of the tasks sensor: what has not been answered."""
         cn, su, epm, tpm = _fresh_state("alice")
-        task = self._task("Drive", ["m2"], required=1)  # m2 = Bob, not tracked
-        ev = _make_event("e1", "m1", "Alice")
-        ev["recipients"]["group"]["members"].append(_make_member("m2", "Bob"))
-        ev["tasks"]["assignedTasks"] = [task]
+        task = self._assigned_task("Iskjorer", unanswered=["m1"])
+        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
+        process_raw_events([ev], cn, su, epm, tpm)
+        t = tpm["alice"]["e1::Iskjorer"]
+        assert t["status"] == "unanswered"
+        assert t["task_type"] == "ASSIGNED"
+        assert t["adults_only"] is True
+
+    def test_declined_task_kept_with_status(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        task = self._assigned_task("Kiosk", declined=["m1"])
+        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert tpm["alice"]["e1::Kiosk"]["status"] == "declined"
+
+    def test_task_of_stranger_sharing_first_name_is_ignored(self) -> None:
+        """A group can hold three people called Mathias — names must not match."""
+        cn, su, epm, tpm = _fresh_state("alice")
+        task = self._open_task("Drive", ["m2"], limit=1)
+        ev = _make_event("e1", "m1", "Alice", "Smith", open_tasks=[task])
+        # Same first name, different person, not in behalfOfIds
+        ev["recipients"]["group"]["members"].append(_make_member("m2", "Alice", "Jones"))
         process_raw_events([ev], cn, su, epm, tpm)
         assert tpm["alice"] == {}
+        assert epm["alice"][0]["my_tasks"] == []
+
+    def test_task_assigned_to_adult_resolved_via_profiles(self) -> None:
+        """The adult who answers for a player is not on the group roster."""
+        cn, su, epm, tpm = _fresh_state("carol")
+        task = self._assigned_task("Iskjorer", unanswered=["p1"])
+        ev = _make_event("e1", "m1", "Alice", "Smith", assigned_tasks=[task])
+        ev["recipients"]["profiles"] = [
+            {"id": "p1", "firstName": "Carol", "lastName": "Smith", "profileId": "prof-1"}
+        ]
+        ev["behalfOfIds"] = ["m1", "p1"]
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert tpm["carol"]["e1::Iskjorer"]["status"] == "unanswered"
 
     def test_task_dedup_across_accounts(self) -> None:
         cn, su, epm, tpm = _fresh_state("alice")
-        task = self._task("Drive", ["m1"])
-        ev = _make_event("e1", "m1", "Alice", assigned_tasks=[task])
+        task = self._open_task("Drive", ["m1"])
+        ev = _make_event("e1", "m1", "Alice", open_tasks=[task])
         process_raw_events([ev], cn, su, epm, tpm)
         process_raw_events([ev], cn, su, epm, tpm)  # same event from second account
         assert len(tpm["alice"]) == 1
 
-    def test_co_assignees_populated(self) -> None:
+    def test_co_assignees_use_full_name(self) -> None:
         cn, su, epm, tpm = _fresh_state("alice")
-        # Alice (m1) and Bob (m2) both assigned to the same task
-        task = {"name": "Setup", "assignments": {"memberIds": ["m1", "m2"], "required": 2}}
-        ev = _make_event("e1", "m1", "Alice", "Smith", assigned_tasks=[task])
-        ev["recipients"]["group"]["members"].append(_make_member("m2", "Bob", "G"))
+        task = self._open_task("Setup", ["m1", "m2"], limit=2)
+        ev = _make_event("e1", "m1", "Alice", "Smith", open_tasks=[task])
+        ev["recipients"]["group"]["members"].append(_make_member("m2", "Bob", "Tingeidet Jones"))
         process_raw_events([ev], cn, su, epm, tpm)
         t = tpm["alice"]["e1::Setup"]
-        assert t["co_assignees"] == ["Bob G"]
+        assert t["co_assignees"] == ["Bob Tingeidet Jones"]
 
     def test_my_tasks_populated_in_event(self) -> None:
         cn, su, epm, tpm = _fresh_state("alice")
-        task = self._task("Drive", ["m1"], required=1)
-        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
+        task = self._open_task("Drive", ["m1"], limit=1)
+        ev = _make_event("e1", "m1", "Alice", "G", open_tasks=[task])
         process_raw_events([ev], cn, su, epm, tpm)
-        e = epm["alice"][0]
-        assert len(e["my_tasks"]) == 1
-        assert e["my_tasks"][0]["name"] == "Drive"
+        my_task = epm["alice"][0]["my_tasks"][0]
+        assert my_task["name"] == "Drive"
+        assert my_task["status"] == "accepted"
 
     def test_my_tasks_excludes_self_from_co_assignees(self) -> None:
         cn, su, epm, tpm = _fresh_state("alice")
-        task = {"name": "Setup", "assignments": {"memberIds": ["m1", "m2"], "required": 2}}
-        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
+        task = self._open_task("Setup", ["m1", "m2"], limit=2)
+        ev = _make_event("e1", "m1", "Alice", "G", open_tasks=[task])
         ev["recipients"]["group"]["members"].append(_make_member("m2", "Anna", "P"))
         process_raw_events([ev], cn, su, epm, tpm)
-        e = epm["alice"][0]
-        my_task = e["my_tasks"][0]
-        assert "Alice G" not in my_task["co_assignees"]
-        assert "Anna P" in my_task["co_assignees"]
+        my_task = epm["alice"][0]["my_tasks"][0]
+        assert my_task["co_assignees"] == ["Anna P"]
 
-    def test_open_task_counted(self) -> None:
+    def test_open_task_with_free_slot_counted(self) -> None:
         cn, su, epm, tpm = _fresh_state("alice")
-        # Task needs 2 people but only 1 assigned → open
-        task = self._task("Setup", ["m1"], required=2)
-        ev = _make_event("e1", "m1", "Alice", assigned_tasks=[task])
+        task = self._open_task("Setup", ["m1"], limit=2)  # 2 slots, 1 taken
+        ev = _make_event("e1", "m1", "Alice", open_tasks=[task])
         process_raw_events([ev], cn, su, epm, tpm)
         assert epm["alice"][0]["open_tasks_count"] == 1
 
+    def test_assigned_task_open_until_someone_accepts(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        task = self._assigned_task("Iskjorer", unanswered=["m1", "m2"])
+        ev = _make_event("e1", "m1", "Alice", assigned_tasks=[task])
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert epm["alice"][0]["open_tasks_count"] == 1
+        assert epm["alice"][0]["all_tasks"][0]["is_open"] is True
+
     def test_all_tasks_detail_includes_non_my_tasks(self) -> None:
         cn, su, epm, tpm = _fresh_state("alice")
-        # m2=Bob assigned to a task; Alice is only behalfOf, not assigned
-        task = self._task("Cook", ["m2"], required=1)
-        ev = _make_event("e1", "m1", "Alice")
+        task = self._open_task("Cook", ["m2"], limit=1)
+        ev = _make_event("e1", "m1", "Alice", open_tasks=[task])
         ev["recipients"]["group"]["members"].append(_make_member("m2", "Bob", "G"))
-        ev["tasks"]["assignedTasks"] = [task]
         process_raw_events([ev], cn, su, epm, tpm)
         e = epm["alice"][0]
         assert e["my_tasks"] == []
         assert len(e["all_tasks"]) == 1
         assert e["all_tasks"][0]["name"] == "Cook"
+        assert e["all_tasks"][0]["assigned"] == ["Bob G"]
 
     def test_cancelled_task_event_field_set(self) -> None:
         cn, su, epm, tpm = _fresh_state("alice")
-        task = self._task("Drive", ["m1"])
-        ev = _make_event("e1", "m1", "Alice", assigned_tasks=[task], cancelled=True)
+        task = self._open_task("Drive", ["m1"])
+        ev = _make_event("e1", "m1", "Alice", open_tasks=[task], cancelled=True)
         process_raw_events([ev], cn, su, epm, tpm)
-        t = tpm["alice"]["e1::Drive"]
-        assert t["cancelled"] is True
+        assert tpm["alice"]["e1::Drive"]["cancelled"] is True
+
+
+# ── TestPeopleInEvent ────────────────────────────────────────────────────────
+
+
+class TestPeopleInEvent:
+    def test_collects_players_guardians_and_profiles(self) -> None:
+        ev = {
+            "recipients": {
+                "group": {
+                    "members": [
+                        {
+                            "id": "m1",
+                            "firstName": "Alice",
+                            "lastName": "Smith",
+                            "guardians": [{"id": "g1", "firstName": "Carol", "lastName": "Smith"}],
+                        }
+                    ]
+                },
+                "profiles": [{"id": "p1", "firstName": "Dave", "lastName": "Smith"}],
+                "guardians": [{"id": "g2", "firstName": "Erik", "lastName": "Smith"}],
+            }
+        }
+        people = people_in_event(ev)
+        assert set(people) == {"m1", "g1", "p1", "g2"}
+        assert people["p1"] == {"canonical": "dave", "display_name": "Dave Smith"}
+
+    def test_skips_records_without_a_first_name(self) -> None:
+        ev = {"recipients": {"group": {"members": [{"id": "m1", "lastName": "Smith"}]}}}
+        assert people_in_event(ev) == {}
+
+    def test_handles_missing_recipients(self) -> None:
+        assert people_in_event({}) == {}
+
+
+# ── TestTaskView ─────────────────────────────────────────────────────────────
+
+
+class TestTaskView:
+    def test_open_task_slots(self) -> None:
+        task = {
+            "name": "Kiosk",
+            "type": "OPEN",
+            "limit": 2,
+            "remaining": 1,
+            "accepted": [{"id": "m1"}],
+        }
+        view = task_view(task, {"m1": {"canonical": "alice", "display_name": "Alice Smith"}})
+        assert view["required"] == 2
+        assert view["is_open"] is True
+        assert view["assigned"] == ["Alice Smith"]
+
+    def test_open_task_full(self) -> None:
+        task = {
+            "name": "Kiosk",
+            "type": "OPEN",
+            "limit": 1,
+            "remaining": 0,
+            "accepted": [{"id": "m1"}],
+        }
+        assert task_view(task, {})["is_open"] is False
+
+    def test_assigned_task_open_until_accepted(self) -> None:
+        task = {"name": "Drive", "type": "ASSIGNED", "unanswered": ["m1", "m2"]}
+        view = task_view(task, {})
+        assert view["is_open"] is True
+        assert view["required"] == 0
+        assert view["by_state"]["unanswered"] == ["m1", "m2"]
+
+    def test_assigned_task_closed_once_accepted(self) -> None:
+        task = {
+            "name": "Drive",
+            "type": "ASSIGNED",
+            "accepted": [{"id": "m1"}],
+            "unanswered": ["m2"],
+        }
+        assert task_view(task, {})["is_open"] is False
+
+    def test_mixed_id_shapes_are_normalized(self) -> None:
+        """accepted/declined arrive as dicts, unanswered as bare strings."""
+        task = {
+            "name": "Drive",
+            "type": "ASSIGNED",
+            "accepted": [{"id": "a1"}],
+            "declined": [{"id": "d1", "message": "busy"}],
+            "unanswered": ["u1"],
+        }
+        view = task_view(task, {})
+        assert view["by_state"] == {
+            "accepted": ["a1"],
+            "declined": ["d1"],
+            "unanswered": ["u1"],
+        }
+
+    def test_missing_remaining_falls_back_to_counting(self) -> None:
+        task = {"name": "Kiosk", "type": "OPEN", "limit": 2, "accepted": [{"id": "m1"}]}
+        assert task_view(task, {})["is_open"] is True
+
+
+# ── TestFingerprintTaskStatus ────────────────────────────────────────────────
+
+
+class TestFingerprintTaskStatus:
+    def test_status_change_shows_up_in_fingerprint(self) -> None:
+        """Accepting a task must register as a change, not pass unnoticed."""
+        before = event_fingerprint({"my_tasks": [{"name": "Drive", "status": "unanswered"}]})
+        after = event_fingerprint({"my_tasks": [{"name": "Drive", "status": "accepted"}]})
+        assert before["my_tasks"] == after["my_tasks"]
+        assert before["my_task_states"] != after["my_task_states"]

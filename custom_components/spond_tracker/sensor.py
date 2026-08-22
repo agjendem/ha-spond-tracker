@@ -142,7 +142,9 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
         if self.coordinator.data is None:
             return 0
         tasks = self.coordinator.data.tasks.get(self._canonical, [])
-        return sum(1 for t in tasks if not t.get("cancelled"))
+        # A declined task is no longer on this member's plate; one that is
+        # merely unanswered still is, and is exactly what needs chasing.
+        return sum(1 for t in tasks if not t.get("cancelled") and t.get("status") != "declined")
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -159,8 +161,11 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
                 "co_assignees": t.get("co_assignees", []),
                 "required": t.get("required", 0),
                 "assigned_count": t.get("assigned_count", 0),
+                "status": t.get("status"),
+                "task_type": t.get("task_type"),
+                "adults_only": t.get("adults_only", False),
             }
             for t in tasks
-            if not t.get("cancelled")
+            if not t.get("cancelled") and t.get("status") != "declined"
         ]
         return {"tasks": active}

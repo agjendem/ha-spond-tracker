@@ -89,7 +89,9 @@ One `calendar.<member>` entity per tracked member. Each entry shows:
 | Sensor | State | Attributes |
 |--------|-------|------------|
 | `sensor.spond_<member>` | Events today (int) | `today_events`, `next_event`, `upcoming_events` |
-| `sensor.spond_<member>_tasks` | Active tasks (int) | `tasks` list with event, time, co-assignees |
+| `sensor.spond_<member>_tasks` | Active tasks (int) | `tasks` list with event, time, co-assignees, `status`, `task_type`, `adults_only` |
+
+A task's `status` is `accepted`, `unanswered`, or `declined` — Spond asks named people and waits for an answer. Declined tasks are excluded from the count and the attribute list; an unanswered one is still counted, because that is exactly the task that needs chasing.
 
 ### Event bus
 
@@ -99,7 +101,7 @@ One `calendar.<member>` entity per tracked member. Each entry shows:
 | `spond_event_removed` | Event disappears | `member`, `title`, `start`, `uid` |
 | `spond_event_changed` | Field changed (title, time, location, status) | `member`, `title`, `start`, `changed_fields`, `uid` |
 | `spond_event_cancelled` | Event flipped to cancelled | `member`, `title`, `start`, `location`, `uid` |
-| `spond_task_assigned` | New task assigned to member | `member`, `title`, `start`, `task`, `uid` |
+| `spond_task_assigned` | New task assigned to member | `member`, `title`, `start`, `task`, `status`, `uid` |
 
 `member` is the lowercased first name (e.g. `alice`).
 
@@ -277,10 +279,12 @@ additions, removals, or changes since the previous poll.
 
 ## Known limitations
 
-- **Same first name** — member matching uses the first token of the Spond
-  first name (lowercased). Two group members with the same first name will
-  collide and share a single tracked member. There is no workaround within
-  the integration today.
+- **Same first name across your own tracked members** — the first token of
+  the Spond first name (lowercased) is the key that groups one person across
+  groups and accounts, so two *tracked* people sharing a first name would
+  collapse into one. Strangers are unaffected: everyone else is matched by
+  member id, so three people called Alice in one group cannot take each
+  other's tasks.
 - **Members are discovered from events** — someone with no upcoming events is
   invisible to Spond's API, so they cannot be offered at setup. Re-run
   **Options → Manage tracked members** once their season starts.
