@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.spond_tracker.config_flow import CannotConnect, InvalidAuth
@@ -384,6 +385,148 @@ async def test_options_remove_not_shown_with_single_account(hass, config_entry):
             for o in (getattr(selector_cfg, "config", {}) or {}).get("options", [])
         ]
         assert "remove" not in options_in_selector
+
+
+# ── OptionsFlow: manage members ───────────────────────────────────────────────
+
+
+async def _open_manage_members(hass, entry, discovered):
+    """Run the options flow up to the manage_members form."""
+    with patch(
+        "custom_components.spond_tracker.config_flow._validate_and_discover",
+        return_value=discovered,
+    ):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        return await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {CONF_POLL_INTERVAL: DEFAULT_POLL_INTERVAL, "action": "members"},
+        )
+
+
+async def test_options_manage_members_adds_newly_discovered(hass, config_entry):
+    """A member with no events at setup time can be added later."""
+    discovered = [*MOCK_MEMBERS, {"canonical": "carol", "display_name": "Carol White"}]
+
+    result = await _open_manage_members(hass, config_entry, discovered)
+    assert result["step_id"] == "manage_members"
+
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_MEMBERS: ["alice", "bob", "carol"]}
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+
+    updated = hass.config_entries.async_get_entry(config_entry.entry_id)
+    canonicals = [m["canonical"] for m in updated.data[CONF_MEMBERS]]
+    assert canonicals == ["alice", "bob", "carol"]
+
+
+async def test_options_manage_members_defaults_to_tracked(hass, config_entry):
+    """The form pre-selects exactly the members already tracked."""
+    discovered = [*MOCK_MEMBERS, {"canonical": "carol", "display_name": "Carol White"}]
+
+    result = await _open_manage_members(hass, config_entry, discovered)
+    schema = result["data_schema"].schema
+    members_key = next(k for k in schema if str(k) == CONF_MEMBERS)
+    assert members_key.default() == ["alice", "bob"]
+    # ...while all three are offered
+    assert set(schema[members_key].options) == {"alice", "bob", "carol"}
+
+
+async def test_options_manage_members_untracks_and_cleans_registry(hass, config_entry):
+    """Deselecting a member drops it and removes its entities."""
+    ent_reg = er.async_get(hass)
+    ent_reg.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{config_entry.entry_id}_bob_events",
+        config_entry=config_entry,
+        suggested_object_id="spond_bob",
+    )
+
+    result = await _open_manage_members(hass, config_entry, MOCK_MEMBERS)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_MEMBERS: ["alice"]}
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+
+    updated = hass.config_entries.async_get_entry(config_entry.entry_id)
+    assert [m["canonical"] for m in updated.data[CONF_MEMBERS]] == ["alice"]
+    assert (
+        ent_reg.async_get_entity_id("sensor", DOMAIN, f"{config_entry.entry_id}_bob_events") is None
+    )
+
+
+async def test_options_manage_members_keeps_tracked_member_without_events(hass, config_entry):
+    """A tracked member with no upcoming events stays selectable and tracked."""
+    # Only alice is discoverable right now; bob's season is over.
+    result = await _open_manage_members(hass, config_entry, [MOCK_MEMBERS[0]])
+    schema = result["data_schema"].schema
+    members_key = next(k for k in schema if str(k) == CONF_MEMBERS)
+    assert set(schema[members_key].options) == {"alice", "bob"}
+
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_MEMBERS: ["alice", "bob"]}
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+
+    updated = hass.config_entries.async_get_entry(config_entry.entry_id)
+    assert [m["canonical"] for m in updated.data[CONF_MEMBERS]] == ["alice", "bob"]
+
+
+async def test_options_manage_members_keeps_stored_display_name(hass, config_entry):
+    """Re-discovery must not rename devices for members already tracked."""
+    discovered = [{"canonical": "alice", "display_name": "Alice Renamed"}, MOCK_MEMBERS[1]]
+
+    result = await _open_manage_members(hass, config_entry, discovered)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_MEMBERS: ["alice", "bob"]}
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+
+    updated = hass.config_entries.async_get_entry(config_entry.entry_id)
+    alice = next(m for m in updated.data[CONF_MEMBERS] if m["canonical"] == "alice")
+    assert alice["display_name"] == "Alice Smith"
+
+
+async def test_options_manage_members_aborts_when_spond_unreachable(hass, config_entry):
+    """No account answered — abort instead of showing an empty member list."""
+    with patch(
+        "custom_components.spond_tracker.config_flow._validate_and_discover",
+        side_effect=CannotConnect("down"),
+    ):
+        result = await hass.config_entries.options.async_init(config_entry.entry_id)
+        result2 = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {CONF_POLL_INTERVAL: DEFAULT_POLL_INTERVAL, "action": "members"},
+        )
+    assert result2["type"] == FlowResultType.ABORT
+    assert result2["reason"] == "cannot_connect"
+    # Members left untouched
+    updated = hass.config_entries.async_get_entry(config_entry.entry_id)
+    assert [m["canonical"] for m in updated.data[CONF_MEMBERS]] == ["alice", "bob"]
+
+
+async def test_options_manage_members_survives_one_failing_account(hass, two_account_entry):
+    """One unreachable account must not hide members from the working one."""
+    calls = []
+
+    async def _fake(username, password):
+        calls.append(username)
+        if username == "a@example.com":
+            raise CannotConnect("down")
+        return [{"canonical": "bob", "display_name": "Bob"}]
+
+    with patch(
+        "custom_components.spond_tracker.config_flow._validate_and_discover",
+        side_effect=_fake,
+    ):
+        result = await hass.config_entries.options.async_init(two_account_entry.entry_id)
+        result2 = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {CONF_POLL_INTERVAL: DEFAULT_POLL_INTERVAL, "action": "members"},
+        )
+    assert result2["step_id"] == "manage_members"
+    assert len(calls) == 2
 
 
 # ── ReauthFlow ────────────────────────────────────────────────────────────────

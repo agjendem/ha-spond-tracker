@@ -53,6 +53,13 @@
           "action": "Handling"
         }
       },
+      "manage_members": {
+        "title": "Behandle sporede medlemmer",
+        "description": "Medlemmer oppdages fra kommende arrangementer, så den som ikke hadde arrangementer da du satte opp integrasjonen ble aldri tilbudt. Nå er alle konfigurerte kontoer sjekket på nytt — huk av medlemmene du vil spore.",
+        "data": {
+          "members": "Medlemmer å spore"
+        }
+      },
       "add_account": {
         "title": "Legg til Spond-konto",
         "description": "Skriv inn påloggingsinfo for en ekstra Spond-konto. Medlemmer som finnes vil bli slått sammen med eksisterende.",
@@ -79,6 +86,9 @@
     "error": {
       "invalid_auth": "Ugyldig e-postadresse eller passord.",
       "cannot_connect": "Kunne ikke koble til Spond. Sjekk internettforbindelsen og prøv igjen."
+    },
+    "abort": {
+      "cannot_connect": "Fikk ikke kontakt med Spond for å hente medlemmer. Sjekk internettforbindelsen og prøv igjen."
     }
   },
   "calendar": {
@@ -123,6 +133,7 @@
   "selector": {
     "action": {
       "options": {
+        "members": "Behandle sporede medlemmer",
         "add": "Legg til konto",
         "remove": "Fjern konto"
       }
