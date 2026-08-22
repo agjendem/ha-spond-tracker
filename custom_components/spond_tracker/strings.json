@@ -53,6 +53,13 @@
           "action": "Action"
         }
       },
+      "manage_members": {
+        "title": "Manage tracked members",
+        "description": "Members are discovered from upcoming events, so anyone without events at setup time was not offered. Re-checked across every configured account — tick the members to track.",
+        "data": {
+          "members": "Members to track"
+        }
+      },
       "add_account": {
         "title": "Add Spond account",
         "description": "Enter credentials for an additional Spond account. Members found will be merged with existing members.",
@@ -79,6 +86,9 @@
     "error": {
       "invalid_auth": "Invalid email address or password.",
       "cannot_connect": "Could not connect to Spond. Check your internet connection and try again."
+    },
+    "abort": {
+      "cannot_connect": "Could not reach Spond to look up members. Check your internet connection and try again."
     }
   },
   "calendar": {
@@ -123,6 +133,7 @@
   "selector": {
     "action": {
       "options": {
+        "members": "Manage tracked members",
         "add": "Add account",
         "remove": "Remove account"
       }

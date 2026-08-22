@@ -66,6 +66,12 @@ Setup is fully UI-based. The wizard walks through:
 
 After setup, go to **Options** to:
 - Change the poll interval (default 30 minutes, range 5–1440).
+- **Manage tracked members** — re-checks every configured account and lets you
+  tick members on or off. Use this when someone was missing at setup time:
+  members are only discovered from upcoming events, so anyone whose season had
+  not started yet was never offered. Members already tracked stay on the list
+  even when they currently have no events, and unticking one removes its
+  calendar, sensors, and device.
 - Add a second (or third) Spond account.
 - Remove an account.
 
@@ -275,6 +281,9 @@ additions, removals, or changes since the previous poll.
   first name (lowercased). Two group members with the same first name will
   collide and share a single tracked member. There is no workaround within
   the integration today.
+- **Members are discovered from events** — someone with no upcoming events is
+  invisible to Spond's API, so they cannot be offered at setup. Re-run
+  **Options → Manage tracked members** once their season starts.
 - **60-day window** — only events starting within the next 60 days are
   fetched. Events further in the future will not appear in the calendar.
 - **Poll-based change detection** — event bus events (`spond_event_added`,
