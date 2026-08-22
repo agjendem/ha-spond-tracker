@@ -15,7 +15,7 @@ deduplication.
 
 ```bash
 ruff check . && ruff format --check .   # lint — same as CI
-pytest                                   # 172 tests as of last count
+pytest                                   # 232 tests as of last count
 ```
 
 Commits use **Conventional Commits** (`feat:`, `fix:`, `docs:`, etc.).
@@ -56,14 +56,14 @@ Rule docs base URL: `https://developers.home-assistant.io/docs/core/integration-
 
 | Rule | Docs | Status | Notes |
 |------|------|--------|-------|
-| `action-setup` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/action-setup/) | ✅ N/A | No custom actions |
+| `action-setup` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/action-setup/) | ✅ | `respond_to_task` + `snooze_task` registered in `async_setup` |
 | `appropriate-polling` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/appropriate-polling/) | ✅ | `DataUpdateCoordinator`, configurable 5–1440 min |
 | `brands` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/brands/) | ✅ | `brand/` with icon.png 256×256, icon@2x.png 512×512, dark variants, logo |
 | `common-modules` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/common-modules/) | ✅ | coordinator.py, const.py, config_flow.py, spond_helpers.py |
 | `config-flow` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/config-flow/) | ✅ | Full UI config flow |
 | `config-flow-test-coverage` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/config-flow-test-coverage/) | ✅ | `tests/test_config_flow.py` — all steps + errors + options |
 | `dependency-transparency` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/dependency-transparency/) | ✅ | `spond==1.2.1` pinned in manifest, on PyPI |
-| `docs-actions` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/docs-actions/) | ✅ N/A | No custom actions |
+| `docs-actions` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/docs-actions/) | ✅ | "Actions" section in README + `services.yaml` |
 | `docs-high-level-description` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/docs-high-level-description/) | ✅ | README intro + Features section |
 | `docs-installation-instructions` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/docs-installation-instructions/) | ✅ | HACS + manual steps in README |
 | `docs-removal-instructions` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/docs-removal-instructions/) | ✅ | "Removing the integration" section in README |
@@ -79,7 +79,7 @@ Rule docs base URL: `https://developers.home-assistant.io/docs/core/integration-
 
 | Rule | Docs | Status | Notes |
 |------|------|--------|-------|
-| `action-exceptions` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/action-exceptions/) | ✅ N/A | No custom actions |
+| `action-exceptions` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/action-exceptions/) | ✅ | `ServiceValidationError` for bad targets, `HomeAssistantError` for Spond failures |
 | `config-entry-unloading` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/config-entry-unloading/) | ✅ | `async_unload_platforms` in `async_unload_entry` |
 | `docs-configuration-parameters` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/docs-configuration-parameters/) | ✅ | Options documented in README (poll interval, add/remove account) |
 | `docs-installation-parameters` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/docs-installation-parameters/) | ✅ | Setup parameters (username, member selection) documented in README |

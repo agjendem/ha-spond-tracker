@@ -137,6 +137,46 @@
         "add": "Add account",
         "remove": "Remove account"
       }
+    },
+    "response": {
+      "options": {
+        "accept": "Accept",
+        "decline": "Decline"
+      }
+    }
+  },
+  "services": {
+    "respond_to_task": {
+      "name": "Respond to task",
+      "description": "Accept or decline a Spond task on behalf of a tracked member.",
+      "fields": {
+        "task": {
+          "name": "Task",
+          "description": "The task's uid, as listed in the tasks sensor attributes."
+        },
+        "response": {
+          "name": "Response",
+          "description": "Whether to accept or decline the task."
+        }
+      }
+    },
+    "snooze_task": {
+      "name": "Snooze task",
+      "description": "Hide a task from the count for a while without answering it. Spond is not told; the snooze is remembered in Home Assistant only. A duration in the past clears an existing snooze.",
+      "fields": {
+        "task": {
+          "name": "Task",
+          "description": "The task's uid, as listed in the tasks sensor attributes."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "How long to stay quiet. Defaults to 24 hours when neither duration nor until is given."
+        },
+        "until": {
+          "name": "Until",
+          "description": "Stay quiet until this moment. Cannot be combined with duration."
+        }
+      }
     }
   }
 }

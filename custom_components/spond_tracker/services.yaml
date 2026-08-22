@@ -1,0 +1,38 @@
+respond_to_task:
+  target:
+    entity:
+      integration: spond_tracker
+  fields:
+    task:
+      required: true
+      example: "1A2B3C::Drive the ice resurfacer"
+      selector:
+        text:
+    response:
+      required: true
+      default: accept
+      selector:
+        select:
+          options:
+            - accept
+            - decline
+          translation_key: response
+
+snooze_task:
+  target:
+    entity:
+      integration: spond_tracker
+  fields:
+    task:
+      required: true
+      example: "1A2B3C::Drive the ice resurfacer"
+      selector:
+        text:
+    duration:
+      example: "04:00:00"
+      selector:
+        duration:
+    until:
+      example: "2026-08-30 18:00:00"
+      selector:
+        datetime:

@@ -121,6 +121,66 @@ action:
       message: "{{ trigger.event.data.task }} ({{ trigger.event.data.title }})"
 ```
 
+## Actions
+
+| Action | What it does |
+|--------|--------------|
+| `spond_tracker.respond_to_task` | Accepts or declines a task in Spond on behalf of the targeted member. |
+| `spond_tracker.snooze_task` | Hides a task from the sensor count for a while, without answering it. |
+
+Both take a `task` uid, which every entry in the tasks sensor's `tasks`
+attribute carries as `uid`. Target any entity belonging to the member — the
+tasks sensor is the natural choice.
+
+```yaml
+action: spond_tracker.respond_to_task
+target:
+  entity_id: sensor.spond_alice_tasks
+data:
+  task: "1A2B3C::Drive the ice resurfacer"
+  response: accept        # or: decline
+```
+
+Snoozing is a Home Assistant idea, not a Spond one: Spond knows only accepted,
+declined and unanswered, so "ask me later" is remembered on this side. A
+snoozed task drops out of the sensor's state but stays in the `tasks`
+attribute with a `snoozed_until` timestamp, and reappears when the snooze runs
+out. Answering a task clears any snooze on it.
+
+```yaml
+action: spond_tracker.snooze_task
+target:
+  entity_id: sensor.spond_alice_tasks
+data:
+  task: "1A2B3C::Drive the ice resurfacer"
+  duration: "04:00:00"    # or: until: "2026-08-30 18:00:00"
+```
+
+Give neither `duration` nor `until` and the task stays quiet for 24 hours. A
+`duration` of `0` clears an existing snooze.
+
+Pair them with an actionable notification to answer a duty from your phone:
+
+```yaml
+alias: "Spond: ask about unanswered tasks"
+triggers:
+  - trigger: event
+    event_type: spond_task_assigned
+    event_data:
+      member: alice
+      status: unanswered
+actions:
+  - action: notify.mobile_app_alice_phone
+    data:
+      message: "{{ trigger.event.data.task }} — {{ trigger.event.data.title }}"
+      data:
+        actions:
+          - action: SPOND_ACCEPT
+            title: Accept
+          - action: SPOND_SNOOZE
+            title: Later
+```
+
 ## Automation blueprints
 
 The repo ships four blueprints that turn event-bus events into mobile

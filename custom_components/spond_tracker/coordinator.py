@@ -8,13 +8,15 @@ from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.issue_registry import (
     IssueSeverity,
     async_create_issue,
     async_delete_issue,
 )
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 from spond import spond as spond_lib
 
 from .const import (
@@ -25,6 +27,8 @@ from .const import (
     CONF_USERNAME,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
+    SNOOZE_STORAGE_KEY,
+    SNOOZE_STORAGE_VERSION,
 )
 from .spond_helpers import event_fingerprint, process_raw_events
 from .spond_i18n import TRANSLATIONS_DIR, load_translations
@@ -59,6 +63,9 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.strings: dict = {}
         self._strings_lang: str = ""
         self._consecutive_failures: int = 0
+        self._snooze_store: Store = Store(hass, SNOOZE_STORAGE_VERSION, SNOOZE_STORAGE_KEY)
+        # task_uid_key -> ISO timestamp until which the task is hushed
+        self.snoozed: dict[str, str] = {}
 
     @property
     def language(self) -> str:
@@ -119,7 +126,12 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
                     await s.clientsession.close()
 
             process_raw_events(
-                raw_events, canonical_names, seen_uids, events_per_member, tasks_per_member
+                raw_events,
+                canonical_names,
+                seen_uids,
+                events_per_member,
+                tasks_per_member,
+                account=acc_username,
             )
 
         if not any_success and accounts:
@@ -154,6 +166,7 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
             canonical: sorted(task_dict.values(), key=lambda t: t.get("start") or "")
             for canonical, task_dict in tasks_per_member.items()
         }
+        self._apply_snoozes(tasks_data)
 
         # Change detection: fire HA bus events for diffs since last poll
         for mem_cfg in tracked_members:
@@ -249,3 +262,110 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
             tasks=tasks_data,
             polled_at=datetime.now(UTC),
         )
+
+    # ── Snoozing ─────────────────────────────────────────────────────────────
+
+    async def async_load_snoozes(self) -> None:
+        """Restore snoozes from disk. Call before the first refresh."""
+        stored = await self._snooze_store.async_load()
+        self.snoozed = dict(stored) if isinstance(stored, dict) else {}
+
+    def _apply_snoozes(self, tasks_data: dict[str, list[dict]]) -> None:
+        """Stamp `snoozed_until` on tasks and forget snoozes that have run out.
+
+        A snooze that has expired, or whose task has disappeared from Spond, is
+        dropped so the store cannot grow without bound.
+        """
+        now = dt_util.utcnow()
+        live_uids = {t["task_uid_key"] for tasks in tasks_data.values() for t in tasks}
+        kept: dict[str, str] = {}
+        for uid, until in self.snoozed.items():
+            parsed = dt_util.parse_datetime(until)
+            if uid in live_uids and parsed and parsed > now:
+                kept[uid] = until
+
+        for tasks in tasks_data.values():
+            for task in tasks:
+                task["snoozed_until"] = kept.get(task["task_uid_key"])
+
+        if kept != self.snoozed:
+            self.snoozed = kept
+            self._snooze_store.async_delay_save(lambda: self.snoozed, 1)
+
+    async def async_snooze_task(self, canonical: str, task_uid: str, until: datetime) -> None:
+        """Hush one task until `until`; a time in the past clears the snooze."""
+        self._find_task(canonical, task_uid)  # raises if unknown
+        if until <= dt_util.utcnow():
+            self.snoozed.pop(task_uid, None)
+        else:
+            self.snoozed[task_uid] = until.isoformat()
+        await self._snooze_store.async_save(self.snoozed)
+        await self.async_request_refresh()
+
+    # ── Responding ───────────────────────────────────────────────────────────
+
+    def _find_task(self, canonical: str, task_uid: str) -> dict:
+        """Look up one tracked task, or explain what is available instead."""
+        tasks = (self.data.tasks.get(canonical, []) if self.data else []) or []
+        for task in tasks:
+            if task["task_uid_key"] == task_uid:
+                return task
+        raise HomeAssistantError(
+            f"No Spond task '{task_uid}' for member '{canonical}'. "
+            f"Known tasks: {[t['task_uid_key'] for t in tasks] or 'none'}"
+        )
+
+    async def async_respond_to_task(self, canonical: str, task_uid: str, accepted: bool) -> None:
+        """Accept or decline a task in Spond, then refresh.
+
+        The response has to be sent through the same account the task was seen
+        on: assignment ids are scoped to that account's view of the event.
+        """
+        task = self._find_task(canonical, task_uid)
+        account = task.get("account")
+        acc = next(
+            (a for a in self._get_accounts() if a[CONF_USERNAME] == account),
+            None,
+        )
+        if acc is None or not task.get("task_id") or not task.get("member_id"):
+            raise HomeAssistantError(
+                f"Task '{task_uid}' cannot be answered: it is missing the account or "
+                "ids needed to reach Spond. Wait for the next poll and try again."
+            )
+
+        s = spond_lib.Spond(username=acc[CONF_USERNAME], password=acc[CONF_PASSWORD])
+        try:
+            await s.login()
+            url = (
+                f"{s.api_url}sponds/{task['event_uid']}"
+                f"/tasks/{task['task_id']}/assignments/{task['member_id']}"
+            )
+            async with s.clientsession.put(
+                url, headers=s.auth_headers, json={"accepted": accepted}
+            ) as r:
+                if r.status != 200:
+                    body = (await r.text())[:200]
+                    raise HomeAssistantError(
+                        f"Spond rejected the response to '{task['task_name']}' "
+                        f"(HTTP {r.status}): {body}"
+                    )
+        except HomeAssistantError:
+            raise
+        except Exception as err:
+            raise HomeAssistantError(
+                f"Could not reach Spond to answer '{task['task_name']}': {err}"
+            ) from err
+        finally:
+            with contextlib.suppress(Exception):
+                await s.clientsession.close()
+
+        _LOGGER.info(
+            "Spond task '%s' for %s set to %s",
+            task["task_name"],
+            canonical,
+            "accepted" if accepted else "declined",
+        )
+        # Answering settles the question, so any snooze on it is moot.
+        if self.snoozed.pop(task_uid, None) is not None:
+            await self._snooze_store.async_save(self.snoozed)
+        await self.async_request_refresh()

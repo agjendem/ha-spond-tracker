@@ -22,6 +22,15 @@ _LOGGER = logging.getLogger(__name__)
 PARALLEL_UPDATES = 1
 
 
+def _is_outstanding(task: dict) -> bool:
+    """True while a task still needs an answer or an appearance from the member."""
+    return (
+        not task.get("cancelled")
+        and task.get("status") != "declined"
+        and not task.get("snoozed_until")
+    )
+
+
 def _parse_local(value: object) -> datetime | None:
     """Parse a Spond ISO-8601 timestamp into local time, or None if unusable."""
     if not isinstance(value, str) or not value:
@@ -143,8 +152,10 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
             return 0
         tasks = self.coordinator.data.tasks.get(self._canonical, [])
         # A declined task is no longer on this member's plate; one that is
-        # merely unanswered still is, and is exactly what needs chasing.
-        return sum(1 for t in tasks if not t.get("cancelled") and t.get("status") != "declined")
+        # merely unanswered still is, and is exactly what needs chasing. A
+        # snoozed task drops out until the snooze runs out — that is the point
+        # of snoozing — but it stays listed in the attributes.
+        return sum(1 for t in tasks if _is_outstanding(t))
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -153,6 +164,7 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
         tasks = self.coordinator.data.tasks.get(self._canonical, [])
         active = [
             {
+                "uid": t["task_uid_key"],
                 "task": t["task_name"],
                 "event": t["event_title"],
                 "start": t["start"],
@@ -164,8 +176,12 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
                 "status": t.get("status"),
                 "task_type": t.get("task_type"),
                 "adults_only": t.get("adults_only", False),
+                "snoozed_until": t.get("snoozed_until"),
             }
             for t in tasks
             if not t.get("cancelled") and t.get("status") != "declined"
         ]
-        return {"tasks": active}
+        return {
+            "tasks": active,
+            "snoozed_count": sum(1 for t in active if t["snoozed_until"]),
+        }

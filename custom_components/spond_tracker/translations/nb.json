@@ -137,6 +137,46 @@
         "add": "Legg til konto",
         "remove": "Fjern konto"
       }
+    },
+    "response": {
+      "options": {
+        "accept": "Godta",
+        "decline": "Avslå"
+      }
+    }
+  },
+  "services": {
+    "respond_to_task": {
+      "name": "Svar på oppgave",
+      "description": "Godta eller avslå en Spond-oppgave på vegne av et sporet medlem.",
+      "fields": {
+        "task": {
+          "name": "Oppgave",
+          "description": "Oppgavens uid, slik den står i attributtene til oppgavesensoren."
+        },
+        "response": {
+          "name": "Svar",
+          "description": "Om oppgaven skal godtas eller avslås."
+        }
+      }
+    },
+    "snooze_task": {
+      "name": "Utsett oppgave",
+      "description": "Skjul en oppgave fra tellingen en stund uten å svare på den. Spond får ikke vite noe; utsettelsen huskes kun i Home Assistant. En varighet som allerede er passert opphever utsettelsen.",
+      "fields": {
+        "task": {
+          "name": "Oppgave",
+          "description": "Oppgavens uid, slik den står i attributtene til oppgavesensoren."
+        },
+        "duration": {
+          "name": "Varighet",
+          "description": "Hvor lenge det skal være stille. 24 timer hvis verken varighet eller tidspunkt er satt."
+        },
+        "until": {
+          "name": "Til",
+          "description": "Vær stille fram til dette tidspunktet. Kan ikke kombineres med varighet."
+        }
+      }
     }
   }
 }
