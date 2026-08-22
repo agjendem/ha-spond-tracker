@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.9.0...v0.10.0) (2026-08-22)
+
+
+### Features
+
+* manage tracked members from the options flow ([e64f329](https://github.com/agjendem/ha-spond-tracker/commit/e64f32928c7978c08563c5053571bb41de524b3f))
+
+
+### Bug Fixes
+
+* match tasks by member id and parse Spond's real task schema ([#45](https://github.com/agjendem/ha-spond-tracker/issues/45)) ([97a6620](https://github.com/agjendem/ha-spond-tracker/commit/97a6620c66f2915883a9f8c4807d5db39c3fb3b7))
+
+
+### Dependencies
+
+* bump the pip-deps group with 2 updates ([fefcb46](https://github.com/agjendem/ha-spond-tracker/commit/fefcb4626a719a5488a9cce6a853066a8d4297ea))
+
 ## [0.9.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.8.2...v0.9.0) (2026-08-05)
 
 
