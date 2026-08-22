@@ -7,8 +7,9 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import selector
 from spond import spond as spond_lib
@@ -60,6 +61,29 @@ async def _validate_and_discover(username: str, password: str) -> list[dict]:
             await s.clientsession.close()
 
     return members_from_events(events)
+
+
+def _remove_member_registry_entries(
+    hass: HomeAssistant, entry: ConfigEntry, canonicals: list[str]
+) -> None:
+    """Drop entities and devices for members that are no longer tracked."""
+    if not canonicals:
+        return
+
+    ent_reg = er.async_get(hass)
+    for ent in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if ent.unique_id and any(
+            ent.unique_id.startswith(f"{entry.entry_id}_{canonical}_") for canonical in canonicals
+        ):
+            ent_reg.async_remove(ent.entity_id)
+            _LOGGER.debug("Removed entity %s (member no longer tracked)", ent.entity_id)
+
+    dev_reg = dr.async_get(hass)
+    for canonical in canonicals:
+        device = dev_reg.async_get_device(identifiers={(DOMAIN, f"{entry.entry_id}_{canonical}")})
+        if device:
+            dev_reg.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+            _LOGGER.debug("Removed device for member %s (no longer tracked)", canonical)
 
 
 class SpondTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -244,12 +268,13 @@ class SpondTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class SpondTrackerOptionsFlow(OptionsFlow):
-    """Handle options: poll interval, language, and adding more Spond accounts."""
+    """Handle options: poll interval, tracked members, and Spond accounts."""
 
     def __init__(self) -> None:
         self._pending_options: dict[str, Any] = {}
         self._new_account: dict[str, str] = {}
         self._new_members: list[dict] = []
+        self._member_choices: list[dict] = []
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> dict:
         if user_input is not None:
@@ -260,6 +285,9 @@ class SpondTrackerOptionsFlow(OptionsFlow):
             if action == "remove":
                 self._pending_options = user_input
                 return await self.async_step_remove_account()
+            if action == "members":
+                self._pending_options = user_input
+                return await self.async_step_manage_members()
             return self.async_create_entry(title="", data=user_input)
 
         current = self.config_entry.options
@@ -268,7 +296,7 @@ class SpondTrackerOptionsFlow(OptionsFlow):
             "\n" + "\n".join(f"- {a[CONF_USERNAME]}" for a in accounts) if accounts else "—"
         )
 
-        action_values = ["add"]
+        action_values = ["members", "add"]
         if len(accounts) > 1:
             action_values.append("remove")
 
@@ -376,6 +404,83 @@ class SpondTrackerOptionsFlow(OptionsFlow):
             ),
         )
 
+    async def _discover_across_accounts(self) -> tuple[list[dict], bool]:
+        """Re-discover trackable members from every configured account.
+
+        Returns the merged, deduplicated member list and whether at least one
+        account answered — an account that fails is skipped rather than
+        aborting the whole flow.
+        """
+        merged: dict[str, dict] = {}
+        any_fetch_ok = False
+        for acc in self.config_entry.data.get(CONF_ACCOUNTS, []):
+            try:
+                found = await _validate_and_discover(acc[CONF_USERNAME], acc[CONF_PASSWORD])
+            except Exception:
+                _LOGGER.warning(
+                    "Could not fetch members from %s while managing tracked members",
+                    acc[CONF_USERNAME],
+                )
+                continue
+            any_fetch_ok = True
+            for m in found:
+                merged.setdefault(m["canonical"], m)
+        return sorted(merged.values(), key=lambda m: m["display_name"]), any_fetch_ok
+
+    async def async_step_manage_members(self, user_input: dict[str, Any] | None = None) -> dict:
+        """Change which members are tracked, without re-adding the account.
+
+        Members are only discovered from events, so someone with no upcoming
+        events at setup time never appeared in the initial selection. This step
+        re-discovers across all accounts so they can be picked up later.
+        """
+        tracked = list(self.config_entry.data.get(CONF_MEMBERS, []))
+        tracked_by_canonical = {m["canonical"]: m for m in tracked}
+
+        if user_input is not None:
+            chosen = set(user_input.get(CONF_MEMBERS, []))
+            # Keep the stored display_name for members already tracked, so
+            # device and entity names stay stable across this flow.
+            selected = [
+                tracked_by_canonical.get(m["canonical"], m)
+                for m in self._member_choices
+                if m["canonical"] in chosen
+            ]
+            dropped = [c for c in tracked_by_canonical if c not in chosen]
+            _remove_member_registry_entries(self.hass, self.config_entry, dropped)
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data={**self.config_entry.data, CONF_MEMBERS: selected},
+            )
+            _LOGGER.info(
+                "Tracked Spond members updated: %s (no longer tracked: %s)",
+                [m["canonical"] for m in selected],
+                dropped,
+            )
+            return self.async_create_entry(title="", data=self._pending_options)
+
+        discovered, any_fetch_ok = await self._discover_across_accounts()
+        if not any_fetch_ok:
+            return self.async_abort(reason="cannot_connect")
+
+        # Already-tracked members stay on the list even when they have no
+        # upcoming events right now — a quiet season must not silently drop them.
+        known = {m["canonical"] for m in tracked}
+        choices = tracked + [m for m in discovered if m["canonical"] not in known]
+        self._member_choices = sorted(choices, key=lambda m: m["display_name"])
+
+        options = {m["canonical"]: m["display_name"] for m in self._member_choices}
+        return self.async_show_form(
+            step_id="manage_members",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_MEMBERS, default=list(tracked_by_canonical)): cv.multi_select(
+                        options
+                    ),
+                }
+            ),
+        )
+
     async def async_step_remove_account(self, user_input: dict[str, Any] | None = None) -> dict:
         accounts = self.config_entry.data.get(CONF_ACCOUNTS, [])
 
@@ -413,17 +518,7 @@ class SpondTrackerOptionsFlow(OptionsFlow):
                 data={**self.config_entry.data, CONF_ACCOUNTS: remaining, CONF_MEMBERS: kept},
             )
 
-            # Remove entities for members that are no longer tracked
-            if removed_names:
-                ent_reg = er.async_get(self.hass)
-                entry_id = self.config_entry.entry_id
-                for ent in er.async_entries_for_config_entry(ent_reg, entry_id):
-                    if ent.unique_id and any(
-                        ent.unique_id.startswith(f"{entry_id}_{canonical}_")
-                        for canonical in removed_names
-                    ):
-                        ent_reg.async_remove(ent.entity_id)
-                        _LOGGER.debug("Removed entity %s (member no longer tracked)", ent.entity_id)
+            _remove_member_registry_entries(self.hass, self.config_entry, removed_names)
 
             _LOGGER.info(
                 "Removed Spond account %s; removed members: %s",
