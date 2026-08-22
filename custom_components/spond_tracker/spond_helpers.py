@@ -145,6 +145,7 @@ def task_view(task: dict, people: dict[str, dict]) -> dict:
         is_open = not accepted
 
     return {
+        "id": task.get("id"),
         "name": task.get("name", "?"),
         "description": task.get("description") or "",
         "type": task_type,
@@ -209,11 +210,14 @@ def process_raw_events(
     seen_uids: dict[str, set[str]],
     events_per_member: dict[str, list[dict]],
     tasks_per_member: dict[str, dict[str, dict]],
+    account: str | None = None,
 ) -> None:
     """Process one account's raw Spond events into the shared per-member dicts.
 
     Mutates seen_uids, events_per_member, and tasks_per_member in place.
     Call once per account; seen_uids provides cross-account deduplication.
+    `account` records which login a task came from, since responding to it has
+    to go back through that same account.
 
     Every match here is made on member id, never on a name. ``behalfOfIds``
     states exactly which member records this account answers for in this event,
@@ -252,6 +256,11 @@ def process_raw_events(
                     tasks_per_member[canonical][task_uid_key] = {
                         "task_uid_key": task_uid_key,
                         "event_uid": ev_id,
+                        "task_id": task["id"],
+                        # The assignment id is event-scoped and is what the
+                        # respond endpoint addresses — not the profile id.
+                        "member_id": assignee_id,
+                        "account": account,
                         "task_name": task["name"],
                         "task_type": task["type"],
                         "status": state,

@@ -526,6 +526,24 @@ class TestProcessRawEvents:
         assert e["all_tasks"][0]["name"] == "Cook"
         assert e["all_tasks"][0]["assigned"] == ["Bob G"]
 
+    def test_task_carries_ids_needed_to_answer_it(self) -> None:
+        """Responding needs the task id, the assignment id and the account."""
+        cn, su, epm, tpm = _fresh_state("alice")
+        task = self._assigned_task("Drive", unanswered=["m1"])
+        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
+        process_raw_events([ev], cn, su, epm, tpm, account="user@example.com")
+        t = tpm["alice"]["e1::Drive"]
+        assert t["task_id"] == "t-Drive"
+        assert t["member_id"] == "m1"
+        assert t["account"] == "user@example.com"
+
+    def test_account_defaults_to_none(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        task = self._assigned_task("Drive", unanswered=["m1"])
+        ev = _make_event("e1", "m1", "Alice", "G", assigned_tasks=[task])
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert tpm["alice"]["e1::Drive"]["account"] is None
+
     def test_cancelled_task_event_field_set(self) -> None:
         cn, su, epm, tpm = _fresh_state("alice")
         task = self._open_task("Drive", ["m1"])
