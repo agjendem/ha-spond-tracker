@@ -11,6 +11,13 @@ def event_fingerprint(e: dict) -> dict:
     my_task_names = tuple(
         sorted(t.get("name") if isinstance(t, dict) else t for t in (e.get("my_tasks") or []))
     )
+    my_task_states = tuple(
+        sorted(
+            f"{t.get('name')}:{t.get('status')}"
+            for t in (e.get("my_tasks") or [])
+            if isinstance(t, dict)
+        )
+    )
     all_task_names = tuple(
         sorted(
             f"{t.get('name')}:{len(t.get('assigned') or [])}/{t.get('required', 0)}"
@@ -26,6 +33,7 @@ def event_fingerprint(e: dict) -> dict:
         "location": e.get("location"),
         "status": e.get("status"),
         "my_tasks": my_task_names,
+        "my_task_states": my_task_states,
         "all_tasks": all_task_names,
         "open_tasks_count": e.get("open_tasks_count", 0),
     }
@@ -58,28 +66,123 @@ def device_name_for(display_name: str) -> str:
     return f"Spond - {first[0]}" if first else "Spond"
 
 
+TASK_STATES = ("accepted", "declined", "unanswered")
+
+
+def _assignee_ids(value) -> list[str]:
+    """Normalize a Spond task response list to plain member ids.
+
+    Spond is inconsistent here: `accepted` and `declined` arrive as
+    ``[{"id": ..., "message": ...}]`` while `unanswered` is a bare list of id
+    strings. Both shapes mean the same thing.
+    """
+    ids: list[str] = []
+    for item in value or []:
+        ident = item.get("id") if isinstance(item, dict) else item
+        if ident:
+            ids.append(ident)
+    return ids
+
+
+def people_in_event(ev: dict) -> dict[str, dict]:
+    """Map every member id appearing in an event to {canonical, display_name}.
+
+    Spond splits the people in an event across separate lists: the players sit
+    in ``recipients.group.members`` while the adults who answer for them sit in
+    ``recipients.profiles`` (with ``recipients.guardians`` and a per-player
+    ``guardians`` list carrying the same shape). Task assignees are drawn from
+    all of them, so a lookup that only reads group members cannot resolve an
+    adult at all — which is why tasks have to be matched through this map.
+    """
+    recipients = ev.get("recipients") or {}
+    group = recipients.get("group") or {}
+    people: dict[str, dict] = {}
+
+    def _add(record: dict) -> None:
+        ident = record.get("id")
+        if not ident or ident in people:
+            return
+        first = (record.get("firstName") or "").strip()
+        if not first:
+            return
+        last = (record.get("lastName") or "").strip()
+        people[ident] = {
+            "canonical": first.split()[0].lower(),
+            "display_name": f"{first} {last}".strip(),
+        }
+
+    for member in group.get("members") or []:
+        _add(member)
+        for guardian in member.get("guardians") or []:
+            _add(guardian)
+    for profile in recipients.get("profiles") or []:
+        _add(profile)
+    for guardian in recipients.get("guardians") or []:
+        _add(guardian)
+    return people
+
+
+def task_view(task: dict, people: dict[str, dict]) -> dict:
+    """Normalize one raw Spond task into the shape the entities render.
+
+    Spond has two kinds. An OPEN task offers ``limit`` slots that anyone may
+    take, with ``remaining`` still free. An ASSIGNED task is handed to named
+    people who each accept, decline, or leave it unanswered. Neither carries
+    the ``assignments.memberIds`` / ``required`` pair this integration used to
+    look for, which is why no task ever reached an entity.
+    """
+    by_state = {state: _assignee_ids(task.get(state)) for state in TASK_STATES}
+    accepted = by_state["accepted"]
+    task_type = (task.get("type") or "").upper() or "OPEN"
+    remaining = task.get("remaining")
+
+    if task_type == "OPEN":
+        required = task.get("limit") or 0
+        is_open = remaining > 0 if isinstance(remaining, int) else len(accepted) < required
+    else:
+        # An assigned task has no slot count — it is open until someone accepts.
+        required = 0
+        is_open = not accepted
+
+    return {
+        "name": task.get("name", "?"),
+        "description": task.get("description") or "",
+        "type": task_type,
+        "adults_only": bool(task.get("adultsOnly")),
+        "required": required,
+        "remaining": remaining if isinstance(remaining, int) else None,
+        "is_open": is_open,
+        "by_state": by_state,
+        "assigned": [people[i]["display_name"] for i in accepted if i in people],
+    }
+
+
+def other_assignee_names(ids: list[str], self_id: str, people: dict[str, dict]) -> list[str]:
+    """Display names of everyone signed up for a task except the member itself."""
+    return [people[i]["display_name"] for i in ids if i != self_id and i in people]
+
+
 def members_from_events(events: list[dict]) -> list[dict]:
     """Discover unique trackable members from a list of raw Spond events.
 
+    A person is trackable when they appear in an event's ``behalfOfIds`` — the
+    members the signed-in account answers for. Those ids are resolved through
+    :func:`people_in_event`, so adults who exist only in ``recipients.profiles``
+    are discovered too, not just the players on the group roster.
+
     Deduplicates by first-name canonical, so the same child appearing in
-    multiple groups collapses to one entry.  Returns list[{canonical,
-    display_name}] sorted by display_name.  No Spond member IDs are stored.
+    multiple groups collapses to one entry. Returns list[{canonical,
+    display_name}] sorted by display_name. No Spond member IDs are stored:
+    Spond issues a fresh id per group, and per event for adults, so an id is
+    never a stable identity across the whole account.
     """
     persons: dict[str, dict] = {}
     for ev in events:
-        recipients = ev.get("recipients") or {}
-        group = recipients.get("group") or {}
-        members_in_event = {m["id"]: m for m in (group.get("members") or [])}
+        people = people_in_event(ev)
         for mid in ev.get("behalfOfIds") or []:
-            mem = members_in_event.get(mid)
-            if not mem:
-                continue
-            first_name = (mem.get("firstName") or "").strip()
-            last_name = (mem.get("lastName") or "").strip()
-            canonical = first_name.split()[0].lower() if first_name else mid[:8].lower()
-            if canonical not in persons:
-                display_name = f"{first_name} {last_name}".strip() or canonical.title()
-                persons[canonical] = {"canonical": canonical, "display_name": display_name}
+            person = people.get(mid)
+            if person and person["canonical"] not in persons:
+                persons[person["canonical"]] = dict(person)
     return sorted(persons.values(), key=lambda m: m["display_name"])
 
 
@@ -111,140 +214,122 @@ def process_raw_events(
 
     Mutates seen_uids, events_per_member, and tasks_per_member in place.
     Call once per account; seen_uids provides cross-account deduplication.
+
+    Every match here is made on member id, never on a name. ``behalfOfIds``
+    states exactly which member records this account answers for in this event,
+    so a stranger who happens to share a first name with a tracked member can
+    never pick up their tasks — a real hazard, since one group can hold three
+    people with the same first name.
     """
     for ev in raw_events:
         ev_id = ev.get("id")
-        recipients = ev.get("recipients") or {}
-        group = recipients.get("group") or {}
-        members_in_event = {m.get("id"): m for m in (group.get("members") or [])}
+        people = people_in_event(ev)
         behalfof_ids = ev.get("behalfOfIds") or []
+        our_ids = {mid for mid in behalfof_ids if mid in people}
 
         tasks_block = ev.get("tasks") or {}
-        all_tasks_raw = (tasks_block.get("openTasks") or []) + (
-            tasks_block.get("assignedTasks") or []
-        )
+        tasks = [
+            task_view(t, people)
+            for t in (tasks_block.get("openTasks") or []) + (tasks_block.get("assignedTasks") or [])
+        ]
 
-        # --- Tasks: match assignees to tracked members by first name ---
-        for t in all_tasks_raw:
-            task_name = t.get("name", "?")
-            assignments = t.get("assignments") or {}
-            assigned_ids = assignments.get("memberIds") or t.get("memberIds") or []
-            required = assignments.get("required") or t.get("required") or 0
+        cancelled = bool(ev.get("cancelled"))
+        location = (ev.get("location") or {}).get("feature") or ""
+        address = (ev.get("location") or {}).get("address") or ""
 
-            for aid in assigned_ids:
-                am = members_in_event.get(aid)
-                if not am:
-                    continue
-                fn = (am.get("firstName") or "").strip()
-                canonical = fn.split()[0].lower() if fn else ""
-                if canonical not in canonical_names or canonical not in tasks_per_member:
-                    continue
-                task_uid_key = f"{ev_id}::{task_name}"
-                if task_uid_key in tasks_per_member[canonical]:
-                    continue
-                co_assignees = []
-                for other_id in assigned_ids:
-                    if other_id == aid:
+        # --- Tasks: an assignee is ours only if its id is in behalfOfIds ---
+        for task in tasks:
+            for state in TASK_STATES:
+                for assignee_id in task["by_state"][state]:
+                    if assignee_id not in our_ids:
                         continue
-                    om = members_in_event.get(other_id)
-                    if om:
-                        o_fn_parts = (om.get("firstName") or "").split()
-                        o_ln_parts = (om.get("lastName") or "").split()
-                        ofn = o_fn_parts[0] if o_fn_parts else ""
-                        oln = o_ln_parts[0] if o_ln_parts else ""
-                        co_assignees.append(f"{ofn} {oln}".strip() or "?")
-                tasks_per_member[canonical][task_uid_key] = {
-                    "task_uid_key": task_uid_key,
-                    "event_uid": ev_id,
-                    "task_name": task_name,
-                    "event_title": ev.get("heading", "?"),
-                    "start": ev.get("startTimestamp"),
-                    "end": ev.get("endTimestamp"),
-                    "location": ((ev.get("location") or {}).get("feature") or ""),
-                    "address": ((ev.get("location") or {}).get("address") or ""),
-                    "required": required,
-                    "assigned_count": len(assigned_ids),
-                    "co_assignees": co_assignees,
-                    "cancelled": bool(ev.get("cancelled")),
-                }
+                    canonical = people[assignee_id]["canonical"]
+                    if canonical not in canonical_names or canonical not in tasks_per_member:
+                        continue
+                    task_uid_key = f"{ev_id}::{task['name']}"
+                    if task_uid_key in tasks_per_member[canonical]:
+                        continue
+                    tasks_per_member[canonical][task_uid_key] = {
+                        "task_uid_key": task_uid_key,
+                        "event_uid": ev_id,
+                        "task_name": task["name"],
+                        "task_type": task["type"],
+                        "status": state,
+                        "adults_only": task["adults_only"],
+                        "event_title": ev.get("heading", "?"),
+                        "start": ev.get("startTimestamp"),
+                        "end": ev.get("endTimestamp"),
+                        "location": location,
+                        "address": address,
+                        "required": task["required"],
+                        "assigned_count": len(task["by_state"]["accepted"]),
+                        "co_assignees": other_assignee_names(
+                            task["by_state"]["accepted"], assignee_id, people
+                        ),
+                        "cancelled": cancelled,
+                    }
 
-        # --- Events: match behalfOfIds to tracked members by first name ---
+        # --- Events: behalfOfIds are member ids already, so no name matching ---
         responses = ev.get("responses") or {}
-        accepted = set(responses.get("acceptedIds") or [])
-        declined = set(responses.get("declinedIds") or [])
-        waiting = set(responses.get("waitinglistIds") or [])
-        unanswered = set(responses.get("unansweredIds") or [])
+        accepted_ids = set(responses.get("acceptedIds") or [])
+        declined_ids = set(responses.get("declinedIds") or [])
+        waiting_ids = set(responses.get("waitinglistIds") or [])
+        unanswered_ids = set(responses.get("unansweredIds") or [])
 
         for mem_id in behalfof_ids:
-            mem = members_in_event.get(mem_id)
-            if not mem:
+            person = people.get(mem_id)
+            if not person:
                 continue
-            fn_full = (mem.get("firstName") or "").strip()
-            canonical = fn_full.split()[0].lower() if fn_full else ""
+            canonical = person["canonical"]
             if canonical not in canonical_names or canonical not in seen_uids:
                 continue
             if ev_id in seen_uids[canonical]:
                 continue  # already seen from another account or group
             seen_uids[canonical].add(ev_id)
 
-            if ev.get("cancelled"):
+            if cancelled:
                 status = "cancelled"
-            elif mem_id in accepted:
+            elif mem_id in accepted_ids:
                 status = "accepted"
-            elif mem_id in declined:
+            elif mem_id in declined_ids:
                 status = "declined"
-            elif mem_id in waiting:
+            elif mem_id in waiting_ids:
                 status = "waitinglist"
-            elif mem_id in unanswered:
+            elif mem_id in unanswered_ids:
                 status = "unanswered"
             else:
                 status = "unknown"
-
-            ln = (mem.get("lastName") or "").strip()
-            ln_token = ln.split()[0] if ln else ""
-            self_name = f"{fn_full.split()[0]} {ln_token}".strip() if fn_full else ""
 
             my_tasks: list[dict] = []
             all_tasks_detail: list[dict] = []
             open_tasks_count = 0
 
-            for t in all_tasks_raw:
-                task_name = t.get("name", "?")
-                assignments = t.get("assignments") or {}
-                assigned_ids = assignments.get("memberIds") or t.get("memberIds") or []
-                required = assignments.get("required") or t.get("required") or 0
-                adults_only = t.get("adultsOnly", False)
-
-                assignee_names = []
-                for aid in assigned_ids:
-                    am = members_in_event.get(aid)
-                    if am:
-                        a_fn_parts = (am.get("firstName") or "").split()
-                        a_ln_parts = (am.get("lastName") or "").split()
-                        fn = a_fn_parts[0] if a_fn_parts else ""
-                        ln_a = a_ln_parts[0] if a_ln_parts else ""
-                        assignee_names.append(f"{fn} {ln_a}".strip() or "?")
-
-                if mem_id in assigned_ids:
+            for task in tasks:
+                my_state = next(
+                    (s for s in TASK_STATES if mem_id in task["by_state"][s]),
+                    None,
+                )
+                if my_state:
                     my_tasks.append(
                         {
-                            "name": task_name,
-                            "co_assignees": [n for n in assignee_names if n != self_name],
-                            "required": required,
-                            "assigned_count": len(assigned_ids),
+                            "name": task["name"],
+                            "status": my_state,
+                            "co_assignees": other_assignee_names(
+                                task["by_state"]["accepted"], mem_id, people
+                            ),
+                            "required": task["required"],
+                            "assigned_count": len(task["by_state"]["accepted"]),
                         }
                     )
-
-                is_open = bool(required and len(assigned_ids) < required)
-                if is_open:
+                if task["is_open"]:
                     open_tasks_count += 1
                 all_tasks_detail.append(
                     {
-                        "name": task_name,
-                        "assigned": assignee_names,
-                        "required": required,
-                        "is_open": is_open,
-                        "adults_only": adults_only,
+                        "name": task["name"],
+                        "assigned": task["assigned"],
+                        "required": task["required"],
+                        "is_open": task["is_open"],
+                        "adults_only": task["adults_only"],
                     }
                 )
 
@@ -256,8 +341,8 @@ def process_raw_events(
                     "title": ev.get("heading", "Spond"),
                     "start": ev.get("startTimestamp"),
                     "end": ev.get("endTimestamp"),
-                    "location": ((ev.get("location") or {}).get("feature") or ""),
-                    "address": ((ev.get("location") or {}).get("address") or ""),
+                    "location": location,
+                    "address": address,
                     "status": status,
                     "my_tasks": my_tasks,
                     "all_tasks": all_tasks_detail,

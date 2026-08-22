@@ -154,7 +154,7 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
                 co_str = (
                     f" — {self._t('calendar.co_assignees_with')}: {', '.join(co)}" if co else ""
                 )
-                lines.append(f"  • {t['name']}{suffix}{co_str}")
+                lines.append(f"  • {self._task_state_prefix(t)}{t['name']}{suffix}{co_str}")
             desc_parts.append("\n".join(lines))
 
         if ev.get("all_tasks"):
@@ -181,14 +181,33 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
             uid=stable_uid_for(ev["uid"], self._canonical),
         )
 
+    def _task_state_prefix(self, task: dict) -> str:
+        """Emoji flag for a task the member has not accepted yet.
+
+        An accepted task needs no marker — it is the expected state. One that
+        is unanswered or declined is the whole reason to look at the list.
+        """
+        status = task.get("status")
+        if not status or status == "accepted":
+            return ""
+        return f"{STATUS_EMOJI.get(status, '')} "
+
     def _to_task_calendar_event(self, task: dict) -> CalendarEvent:
         start_dt, end_dt = _parse_task_times(task)
-        summary = f"{TASK_MARKER} {task['task_name']} — {task['event_title']}"
+        summary = (
+            f"{TASK_MARKER} {self._task_state_prefix(task)}"
+            f"{task['task_name']} — {task['event_title']}"
+        )
 
         desc_parts = [
             f"{self._t('calendar.task_for')} {self._member.get('display_name', self._canonical.title())}",
             f"{self._t('calendar.on_event')}: {task['event_title']}",
         ]
+        if task.get("status"):
+            desc_parts.append(
+                f"{self._t('calendar.status_label')}: "
+                f"{self._t('calendar.status_' + task['status'])}"
+            )
         if task.get("required"):
             desc_parts.append(
                 f"{self._t('calendar.task_signed_up')}: {task['assigned_count']}/{task['required']}"

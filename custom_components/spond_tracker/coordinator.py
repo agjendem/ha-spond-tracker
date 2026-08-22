@@ -220,6 +220,11 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
                             )
                         prev_tasks = set(prev[uid].get("my_tasks") or ())
                         cur_tasks = set(current_fp[uid].get("my_tasks") or ())
+                        task_states = {
+                            t.get("name"): t.get("status")
+                            for t in (e.get("my_tasks") or [])
+                            if isinstance(t, dict)
+                        }
                         for task in cur_tasks - prev_tasks:
                             self.hass.bus.async_fire(
                                 "spond_task_assigned",
@@ -228,6 +233,7 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
                                     "title": e.get("title"),
                                     "start": e.get("start"),
                                     "task": task,
+                                    "status": task_states.get(task),
                                     "uid": uid,
                                 },
                             )
