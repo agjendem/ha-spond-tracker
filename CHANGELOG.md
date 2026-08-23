@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.11.0...v0.12.0) (2026-08-23)
+
+
+### Features
+
+* allow a longer polling interval overnight ([340de88](https://github.com/agjendem/ha-spond-tracker/commit/340de8881709e2c276f191388d5f306d23cf2eca))
+* optionally include events whose invitation has not been sent ([8025867](https://github.com/agjendem/ha-spond-tracker/commit/8025867819808a83e187bbf7a79b472432b5fbea))
+* split the fetch so uninvited events use a shorter horizon ([ddd7d34](https://github.com/agjendem/ha-spond-tracker/commit/ddd7d34e3c0925bd9518e7135493a1519b2b6fac))
+
+
+### Documentation
+
+* state fetch sizes as gzipped bytes on the wire ([db6751a](https://github.com/agjendem/ha-spond-tracker/commit/db6751a2316b6e8d080273c7f1f0dee0a15d947d))
+
 ## [0.11.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.10.0...v0.11.0) (2026-08-22)
 
 
