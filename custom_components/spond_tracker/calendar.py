@@ -11,10 +11,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import CONF_MEMBERS, DOMAIN
 from .coordinator import SpondDataUpdateCoordinator
-from .spond_helpers import device_name_for, stable_uid_for
+from .spond_helpers import STATUS_NOT_INVITED, device_name_for, stable_uid_for
 from .spond_i18n import STATUS_EMOJI, TASK_MARKER
 
 _LOGGER = logging.getLogger(__name__)
@@ -132,6 +133,11 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
 
         if status == "cancelled":
             summary = f"{emoji} {self._t('calendar.cancelled_prefix')}{ev['title']}".strip()
+        elif status == STATUS_NOT_INVITED:
+            # Parenthesised as well as flagged: the week-plan cards show the
+            # summary and nothing else, so the title has to read as provisional
+            # even to someone who does not know what the emoji means.
+            summary = f"{emoji} ({ev['title']})".strip()
         else:
             summary = f"{emoji} {ev['title']}".strip()
 
@@ -140,6 +146,9 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
             desc_parts.append(f"{self._t('calendar.location_label')}: {ev['location']}")
         if ev.get("address"):
             desc_parts.append(f"{self._t('calendar.address_label')}: {ev['address']}")
+        invite_line = _format_invite_time(ev.get("invite_time"))
+        if invite_line:
+            desc_parts.append(f"{self._t('calendar.invite_time_label')}: {invite_line}")
 
         if ev.get("my_tasks"):
             lines = [self._t("calendar.my_tasks_header")]
@@ -194,10 +203,12 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
 
     def _to_task_calendar_event(self, task: dict) -> CalendarEvent:
         start_dt, end_dt = _parse_task_times(task)
-        summary = (
-            f"{TASK_MARKER} {self._task_state_prefix(task)}"
-            f"{task['task_name']} — {task['event_title']}"
-        )
+        body = f"{task['task_name']} — {task['event_title']}"
+        if task.get("invited") is False:
+            # The task is real, but the event around it has not been announced
+            # yet, so treat it as provisional exactly like the event itself.
+            body = f"{STATUS_EMOJI[STATUS_NOT_INVITED]} ({body})"
+        summary = f"{TASK_MARKER} {self._task_state_prefix(task)}{body}"
 
         desc_parts = [
             f"{self._t('calendar.task_for')} {self._member.get('display_name', self._canonical.title())}",
@@ -218,6 +229,9 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
             desc_parts.append(f"{self._t('calendar.location_label')}: {task['location']}")
         if task.get("address"):
             desc_parts.append(f"{self._t('calendar.address_label')}: {task['address']}")
+        invite_line = _format_invite_time(task.get("invite_time"))
+        if invite_line:
+            desc_parts.append(f"{self._t('calendar.invite_time_label')}: {invite_line}")
         if task.get("cancelled"):
             desc_parts.append(self._t("calendar.main_event_cancelled"))
 
@@ -229,6 +243,14 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
             location=task.get("location") or None,
             uid=stable_uid_for(f"task::{task['task_uid_key']}", self._canonical),
         )
+
+
+def _format_invite_time(value: object) -> str:
+    """Local, human-readable form of when an invitation goes out, or ""."""
+    if not isinstance(value, str) or not value:
+        return ""
+    parsed = dt_util.parse_datetime(value.replace("Z", "+00:00"))
+    return dt_util.as_local(parsed).strftime("%d.%m.%Y %H:%M") if parsed else ""
 
 
 def _parse_event_times(ev: dict) -> tuple[datetime | None, datetime | None]:

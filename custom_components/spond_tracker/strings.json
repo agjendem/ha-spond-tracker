@@ -50,6 +50,7 @@
         "description": "Configured accounts:\n{accounts}",
         "data": {
           "poll_interval": "Polling interval (minutes)",
+          "include_uninvited": "Show events whose invitation has not been sent yet",
           "action": "Action"
         }
       },
@@ -111,6 +112,8 @@
     "status_declined": "Declined",
     "status_waitinglist": "Waitinglist",
     "status_unanswered": "Unanswered",
+    "status_not_invited": "Invitation not sent",
+    "invite_time_label": "Invitation goes out",
     "status_unknown": "Unknown",
     "status_cancelled": "Cancelled"
   },

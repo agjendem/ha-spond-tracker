@@ -318,3 +318,61 @@ def test_tasks_sensor_returns_zero_when_no_data():
     coord.data = None
     sensor = SpondTasksSensor(coord, MEMBER)
     assert sensor.native_value == 0
+
+
+# ── invitations that have not been sent yet ──────────────────────────────────
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_not_invited_count_rolls_up_pending_invitations():
+    """Lets a card tell "has not replied" from "cannot reply yet"."""
+    pending = _today_event(status="not_invited")
+    pending["invited"] = False
+    pending["invite_time"] = "2026-06-20T08:00:00Z"
+    sent = _today_event()
+    sent["uid"] = "evt-sent"
+    sent["invited"] = True
+    sensor = SpondEventsSensor(_make_coordinator([pending, sent]), MEMBER)
+    assert sensor.extra_state_attributes["not_invited_count"] == 1
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_not_invited_count_is_zero_without_the_flag():
+    """Events predating the feature must not be counted as pending."""
+    sensor = SpondEventsSensor(_make_coordinator([_today_event()]), MEMBER)
+    assert sensor.extra_state_attributes["not_invited_count"] == 0
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_pending_event_still_counts_towards_today():
+    """It is on the plan whether or not anyone has been asked yet."""
+    pending = _today_event(status="not_invited")
+    pending["invited"] = False
+    sensor = SpondEventsSensor(_make_coordinator([pending]), MEMBER)
+    assert sensor.native_value == 1
+
+
+@pytest.mark.freeze_time("2026-06-15 12:00:00")
+def test_pending_flags_reach_the_event_attributes():
+    pending = _today_event(status="not_invited")
+    pending["invited"] = False
+    pending["invite_time"] = "2026-06-20T08:00:00Z"
+    sensor = SpondEventsSensor(_make_coordinator([pending]), MEMBER)
+    attrs = sensor.extra_state_attributes
+    assert attrs["today_events"][0]["invited"] is False
+    assert attrs["today_events"][0]["invite_time"] == "2026-06-20T08:00:00Z"
+
+
+def test_task_attributes_expose_the_pending_flag():
+    task = _active_task()
+    task["invited"] = False
+    task["invite_time"] = "2026-06-20T08:00:00Z"
+    sensor = SpondTasksSensor(_make_coordinator(tasks=[task]), MEMBER)
+    entry = sensor.extra_state_attributes["tasks"][0]
+    assert entry["invited"] is False
+    assert entry["invite_time"] == "2026-06-20T08:00:00Z"
+
+
+def test_task_defaults_to_invited_when_flag_missing():
+    sensor = SpondTasksSensor(_make_coordinator(tasks=[_active_task()]), MEMBER)
+    assert sensor.extra_state_attributes["tasks"][0]["invited"] is True

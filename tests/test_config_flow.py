@@ -11,10 +11,12 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.spond_tracker.config_flow import CannotConnect, InvalidAuth
 from custom_components.spond_tracker.const import (
     CONF_ACCOUNTS,
+    CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
     CONF_PASSWORD,
     CONF_POLL_INTERVAL,
     CONF_USERNAME,
+    DEFAULT_INCLUDE_UNINVITED,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
 )
@@ -245,6 +247,31 @@ async def test_options_init_default_poll_interval(hass, config_entry):
     schema = result["data_schema"].schema
     poll_key = next(k for k in schema if str(k) == CONF_POLL_INTERVAL)
     assert poll_key.default() == DEFAULT_POLL_INTERVAL
+
+
+async def test_options_uninvited_defaults_to_off(hass, config_entry):
+    """Opt-in: fetching them multiplies the payload sevenfold."""
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    schema = result["data_schema"].schema
+    key = next(k for k in schema if str(k) == CONF_INCLUDE_UNINVITED)
+    assert key.default() is DEFAULT_INCLUDE_UNINVITED is False
+
+
+async def test_options_saves_uninvited_choice(hass, config_entry):
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_POLL_INTERVAL: 30, CONF_INCLUDE_UNINVITED: True}
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["data"][CONF_INCLUDE_UNINVITED] is True
+
+
+async def test_options_uninvited_keeps_previous_choice_as_default(hass, config_entry):
+    hass.config_entries.async_update_entry(config_entry, options={CONF_INCLUDE_UNINVITED: True})
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    schema = result["data_schema"].schema
+    key = next(k for k in schema if str(k) == CONF_INCLUDE_UNINVITED)
+    assert key.default() is True
 
 
 # ── OptionsFlow: add account ──────────────────────────────────────────────────

@@ -15,7 +15,7 @@ deduplication.
 
 ```bash
 ruff check . && ruff format --check .   # lint — same as CI
-pytest                                   # 232 tests as of last count
+pytest                                   # 272 tests as of last count
 ```
 
 Commits use **Conventional Commits** (`feat:`, `fix:`, `docs:`, etc.).
@@ -88,7 +88,7 @@ Rule docs base URL: `https://developers.home-assistant.io/docs/core/integration-
 | `log-when-unavailable` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/log-when-unavailable/) | ✅ | Coordinator logs WARNING on transition to unavailable, INFO on recovery |
 | `parallel-updates` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/parallel-updates/) | ✅ | `PARALLEL_UPDATES = 1` in sensor.py and calendar.py |
 | `reauthentication-flow` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/reauthentication-flow/) | ✅ | `async_step_reauth` + `async_step_reauth_confirm` in config_flow.py |
-| `test-coverage` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/test-coverage/) | ✅ | 172 tests across config_flow, coordinator, sensor, calendar, helpers, i18n |
+| `test-coverage` | [↗](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/test-coverage/) | ✅ | 272 tests across config_flow, coordinator, sensor, calendar, helpers, i18n |
 
 ### Gold — all applicable rules ✅
 

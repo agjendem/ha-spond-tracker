@@ -16,10 +16,12 @@ from spond import spond as spond_lib
 
 from .const import (
     CONF_ACCOUNTS,
+    CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
     CONF_PASSWORD,
     CONF_POLL_INTERVAL,
     CONF_USERNAME,
+    DEFAULT_INCLUDE_UNINVITED,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
 )
@@ -308,6 +310,10 @@ class SpondTrackerOptionsFlow(OptionsFlow):
                         CONF_POLL_INTERVAL,
                         default=current.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
                     ): vol.All(int, vol.Range(min=5, max=1440)),
+                    vol.Required(
+                        CONF_INCLUDE_UNINVITED,
+                        default=current.get(CONF_INCLUDE_UNINVITED, DEFAULT_INCLUDE_UNINVITED),
+                    ): selector.BooleanSelector(),
                     vol.Optional("action"): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=action_values,

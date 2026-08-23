@@ -10,12 +10,17 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.spond_tracker.const import (
     CONF_ACCOUNTS,
+    CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
     CONF_PASSWORD,
     CONF_USERNAME,
     DOMAIN,
 )
-from custom_components.spond_tracker.coordinator import CoordinatorData, SpondDataUpdateCoordinator
+from custom_components.spond_tracker.coordinator import (
+    MAX_EVENTS,
+    CoordinatorData,
+    SpondDataUpdateCoordinator,
+)
 
 MOCK_MEMBERS = [{"canonical": "alice", "display_name": "Alice Smith"}]
 MOCK_ACCOUNTS = [{CONF_USERNAME: "user@example.com", CONF_PASSWORD: "secret"}]
@@ -29,11 +34,11 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     yield
 
 
-def _make_entry(hass):
+def _make_entry(hass, options=None):
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={CONF_ACCOUNTS: MOCK_ACCOUNTS, CONF_MEMBERS: MOCK_MEMBERS},
-        options={},
+        options=options or {},
     )
     entry.add_to_hass(hass)
     return entry
@@ -148,3 +153,47 @@ async def test_logs_recovery_after_unavailable(mock_spond_cls, hass, caplog):
         await _do_refresh(coord)
     assert any("available again" in r.message for r in caplog.records if r.levelno == logging.INFO)
     assert coord.last_update_success is True
+
+
+# ── uninvited events ─────────────────────────────────────────────────────────
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_uninvited_events_are_not_requested_by_default(mock_spond_cls, hass):
+    """The Spond library filters them out unless asked, and that stays the default."""
+    instance = _mock_spond_instance()
+    mock_spond_cls.return_value = instance
+    coord = SpondDataUpdateCoordinator(hass, _make_entry(hass))
+    await _do_refresh(coord)
+    assert instance.get_events.await_args.kwargs["include_scheduled"] is False
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_option_switches_uninvited_events_on(mock_spond_cls, hass):
+    instance = _mock_spond_instance()
+    mock_spond_cls.return_value = instance
+    entry = _make_entry(hass, options={CONF_INCLUDE_UNINVITED: True})
+    coord = SpondDataUpdateCoordinator(hass, entry)
+    await _do_refresh(coord)
+    assert instance.get_events.await_args.kwargs["include_scheduled"] is True
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_event_ceiling_leaves_room_for_uninvited_events(mock_spond_cls, hass):
+    """One account already returns ~170 events over 60 days with them included."""
+    instance = _mock_spond_instance()
+    mock_spond_cls.return_value = instance
+    coord = SpondDataUpdateCoordinator(hass, _make_entry(hass))
+    await _do_refresh(coord)
+    assert instance.get_events.await_args.kwargs["max_events"] >= 400
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_hitting_the_ceiling_is_logged(mock_spond_cls, hass, caplog):
+    """Silent truncation is exactly how the missing events went unnoticed."""
+    instance = _mock_spond_instance(events=[{"id": f"e{i}"} for i in range(MAX_EVENTS)])
+    mock_spond_cls.return_value = instance
+    coord = SpondDataUpdateCoordinator(hass, _make_entry(hass))
+    with caplog.at_level(logging.WARNING):
+        await _do_refresh(coord)
+    assert "ceiling" in caplog.text

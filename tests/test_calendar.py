@@ -38,6 +38,8 @@ EN_STRINGS = {
         "status_waitinglist": "Waitinglist",
         "status_unanswered": "Unanswered",
         "status_unknown": "Unknown",
+        "status_not_invited": "Invitation not sent",
+        "invite_time_label": "Invitation goes out",
     }
 }
 
@@ -200,3 +202,68 @@ def test_event_uid_is_stable():
     ce1 = cal._to_calendar_event(ev)
     ce2 = cal._to_calendar_event(ev)
     assert ce1.uid == ce2.uid
+
+
+# ── invitations that have not been sent yet ──────────────────────────────────
+
+
+def test_not_invited_event_is_flagged_and_parenthesised():
+    """The week-plan card shows the summary alone, so it has to carry the doubt."""
+    ev = _event("e1", "Ice practice", FUTURE, LATER, status="not_invited")
+    ev["invite_time"] = (NOW + timedelta(days=2)).isoformat()
+    ev["invited"] = False
+    cal = SpondCalendarEntity(_make_coordinator([ev]), MEMBER)
+    result = cal.event
+    assert result.summary == "🕗 (Ice practice)"
+
+
+def test_invited_event_is_left_alone():
+    ev = _event("e1", "Ice practice", FUTURE, LATER, status="accepted")
+    ev["invited"] = True
+    cal = SpondCalendarEntity(_make_coordinator([ev]), MEMBER)
+    assert cal.event.summary == "✅ Ice practice"
+
+
+def test_not_invited_description_says_so_and_when():
+    ev = _event("e1", "Ice practice", FUTURE, LATER, status="not_invited")
+    ev["invite_time"] = "2026-06-05T08:00:00Z"
+    ev["invited"] = False
+    cal = SpondCalendarEntity(_make_coordinator([ev]), MEMBER)
+    desc = cal.event.description
+    assert "Status: Invitation not sent" in desc
+    assert "Invitation goes out: 05.06.2026" in desc
+
+
+def test_invite_line_absent_once_the_invitation_is_out():
+    ev = _event("e1", "Ice practice", FUTURE, LATER, status="unanswered")
+    ev["invited"] = True
+    ev["invite_time"] = None
+    cal = SpondCalendarEntity(_make_coordinator([ev]), MEMBER)
+    assert "Invitation goes out" not in cal.event.description
+
+
+async def test_not_invited_event_still_appears_in_the_range():
+    """Hiding them is what caused the missing trainings in the first place."""
+    ev = _event("e1", "Ice practice", FUTURE, LATER, status="not_invited")
+    ev["invited"] = False
+    cal = SpondCalendarEntity(_make_coordinator([ev]), MEMBER)
+    events = await cal.async_get_events(None, NOW, NEXT_WEEK)
+    assert len(events) == 1
+
+
+async def test_task_on_a_not_yet_announced_event_is_flagged():
+    task = _task("e1::Drive", "Drive", "Ice practice", FUTURE, LATER)
+    task["invited"] = False
+    task["invite_time"] = "2026-06-05T08:00:00Z"
+    task["status"] = "unanswered"
+    cal = SpondCalendarEntity(_make_coordinator([], [task]), MEMBER)
+    events = await cal.async_get_events(None, NOW, NEXT_WEEK)
+    assert "🕗 (Drive — Ice practice)" in events[0].summary
+
+
+async def test_task_on_an_announced_event_is_not_flagged():
+    task = _task("e1::Drive", "Drive", "Ice practice", FUTURE, LATER)
+    task["invited"] = True
+    cal = SpondCalendarEntity(_make_coordinator([], [task]), MEMBER)
+    events = await cal.async_get_events(None, NOW, NEXT_WEEK)
+    assert "🕗" not in events[0].summary

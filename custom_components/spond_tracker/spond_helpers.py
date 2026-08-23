@@ -4,6 +4,12 @@ Nothing here touches HA or Spond directly.
 """
 
 import hashlib
+from datetime import UTC, datetime
+
+# A member sits in `unansweredIds` both when they genuinely have not replied and
+# when the invitation has not gone out at all. Only the first is actionable, so
+# the second gets a status of its own.
+STATUS_NOT_INVITED = "not_invited"
 
 
 def event_fingerprint(e: dict) -> dict:
@@ -32,6 +38,9 @@ def event_fingerprint(e: dict) -> dict:
         "end": e.get("end"),
         "location": e.get("location"),
         "status": e.get("status"),
+        # Flips the moment the invitation is sent, which is the first point at
+        # which answering is even possible.
+        "invited": e.get("invited", True),
         "my_tasks": my_task_names,
         "my_task_states": my_task_states,
         "all_tasks": all_task_names,
@@ -120,6 +129,28 @@ def people_in_event(ev: dict) -> dict[str, dict]:
     for guardian in recipients.get("guardians") or []:
         _add(guardian)
     return people
+
+
+def invitation_pending(ev: dict, now: datetime) -> bool:
+    """True while an event's invitation has not been sent out yet.
+
+    Spond schedules invitations: an event can sit in the calendar for weeks
+    before anyone is asked to reply, and ``inviteTime`` says when the asking
+    happens. Spond drops the field once the invitation goes out, so its mere
+    presence would almost do — but comparing against ``now`` is correct under
+    either mechanism, and lets an event leave the pending state on its own
+    between two polls without Spond having to change anything.
+    """
+    raw = ev.get("inviteTime")
+    if not raw or not isinstance(raw, str):
+        return False
+    try:
+        invite_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if invite_at.tzinfo is None:
+        invite_at = invite_at.replace(tzinfo=UTC)
+    return invite_at > now
 
 
 def task_view(task: dict, people: dict[str, dict]) -> dict:
@@ -211,6 +242,7 @@ def process_raw_events(
     events_per_member: dict[str, list[dict]],
     tasks_per_member: dict[str, dict[str, dict]],
     account: str | None = None,
+    now: datetime | None = None,
 ) -> None:
     """Process one account's raw Spond events into the shared per-member dicts.
 
@@ -224,7 +256,11 @@ def process_raw_events(
     so a stranger who happens to share a first name with a tracked member can
     never pick up their tasks — a real hazard, since one group can hold three
     people with the same first name.
+
+    `now` decides which invitations still count as unsent; it is injected so
+    tests can pin it.
     """
+    now = now or datetime.now(UTC)
     for ev in raw_events:
         ev_id = ev.get("id")
         people = people_in_event(ev)
@@ -238,6 +274,8 @@ def process_raw_events(
         ]
 
         cancelled = bool(ev.get("cancelled"))
+        pending_invite = invitation_pending(ev, now)
+        invite_time = ev.get("inviteTime") if pending_invite else None
         location = (ev.get("location") or {}).get("feature") or ""
         address = (ev.get("location") or {}).get("address") or ""
 
@@ -276,6 +314,8 @@ def process_raw_events(
                             task["by_state"]["accepted"], assignee_id, people
                         ),
                         "cancelled": cancelled,
+                        "invited": not pending_invite,
+                        "invite_time": invite_time,
                     }
 
         # --- Events: behalfOfIds are member ids already, so no name matching ---
@@ -304,6 +344,11 @@ def process_raw_events(
                 status = "declined"
             elif mem_id in waiting_ids:
                 status = "waitinglist"
+            elif pending_invite:
+                # Spond parks everyone in `unansweredIds` until the invitation
+                # is sent, so without this branch a not-yet-invited event is
+                # indistinguishable from one the member is ignoring.
+                status = STATUS_NOT_INVITED
             elif mem_id in unanswered_ids:
                 status = "unanswered"
             else:
@@ -353,6 +398,8 @@ def process_raw_events(
                     "location": location,
                     "address": address,
                     "status": status,
+                    "invited": not pending_invite,
+                    "invite_time": invite_time,
                     "my_tasks": my_tasks,
                     "all_tasks": all_tasks_detail,
                     "open_tasks_count": open_tasks_count,
