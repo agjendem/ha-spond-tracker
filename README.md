@@ -119,15 +119,15 @@ response: a typical account returns roughly 20 events over 60 days without
 them and roughly 170 with them, which is why the option is off by default.
 
 Spond embeds the full recipient list — every player plus their guardians — in
-each event, so one event weighs about 24 KB and how far ahead you look is the
-main thing that decides how much gets downloaded. Measured across two accounts:
+each event, so how far ahead you look is the main thing that decides how much
+gets downloaded. Measured across two accounts, as gzipped bytes on the wire:
 
 | Window | Events | Downloaded |
 |---|---|---|
-| 7 days | 49 | 1.0 MB |
-| 14 days | 94 | 2.1 MB |
-| 30 days | 208 | 4.6 MB |
-| 60 days | 315 | 7.6 MB |
+| 7 days | 49 | 202 KB |
+| 14 days | 94 | 433 KB |
+| 30 days | 208 | 1.0 MB |
+| 60 days | 315 | 1.7 MB |
 
 So the two horizons are separate settings. Confirmed events are few and cheap
 and worth having far ahead — a tournament two months out belongs in the
@@ -138,12 +138,17 @@ events over the full window and one for everything over the shorter horizon:
 
 | Strategy | Downloaded | Confirmed events reach |
 |---|---|---|
-| Everything over 60 days | 7.6 MB | 60 days |
-| Everything over 14 days | 2.1 MB | 14 days |
-| **60-day window, 14-day horizon** (default) | **3.2 MB** | **60 days** |
+| Everything over 60 days | 1.7 MB | 60 days |
+| Everything over 14 days | 433 KB | 14 days |
+| **60-day window, 14-day horizon** (default) | **719 KB** | **60 days** |
 
 Shortening only the horizon costs no tasks in practice — assignments land days,
-not months, before the event.
+not months, before the event. At a 30-minute interval the default works out
+around 34 MB a day, or 26 MB with night polling enabled.
+
+Spond sends no `ETag` or `Last-Modified` and answers `Cache-Control: no-cache`,
+so conditional requests are not an option — every poll transfers the full
+response.
 
 Once an event is included, it needs distinguishing. Spond keeps everyone in
 `unansweredIds` until the invitation goes out, so a not-yet-announced event is
