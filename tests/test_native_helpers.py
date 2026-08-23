@@ -6,7 +6,7 @@ that conftest.py places first in sys.path (which would otherwise resolve
 """
 
 import importlib.util
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from pathlib import Path
 
 # ── load native module ────────────────────────────────────────────────────────
@@ -25,6 +25,9 @@ people_in_event = _mod.people_in_event
 task_view = _mod.task_view
 event_fingerprint = _mod.event_fingerprint
 invitation_pending = _mod.invitation_pending
+parse_clock = _mod.parse_clock
+in_quiet_hours = _mod.in_quiet_hours
+next_poll_minutes = _mod.next_poll_minutes
 STATUS_NOT_INVITED = _mod.STATUS_NOT_INVITED
 
 
@@ -797,3 +800,100 @@ class TestFingerprintInvited:
 
     def test_missing_flag_defaults_to_invited(self) -> None:
         assert event_fingerprint({"title": "Practice"})["invited"] is True
+
+
+# ── TestParseClock ───────────────────────────────────────────────────────────
+
+
+class TestParseClock:
+    def test_full_time_string(self) -> None:
+        assert parse_clock("23:00:00", "06:00:00") == time(23, 0)
+
+    def test_without_seconds(self) -> None:
+        assert parse_clock("06:30", "00:00:00") == time(6, 30)
+
+    def test_missing_value_uses_fallback(self) -> None:
+        assert parse_clock(None, "22:15:00") == time(22, 15)
+
+    def test_garbage_uses_fallback(self) -> None:
+        assert parse_clock("half past nine", "06:00:00") == time(6, 0)
+
+    def test_garbage_fallback_degrades_to_midnight(self) -> None:
+        assert parse_clock("nonsense", "also nonsense") == time(0, 0)
+
+
+# ── TestInQuietHours ─────────────────────────────────────────────────────────
+
+
+class TestInQuietHours:
+    def test_window_wrapping_midnight_covers_both_sides(self) -> None:
+        start, end = time(23, 0), time(6, 0)
+        assert in_quiet_hours(time(23, 30), start, end) is True
+        assert in_quiet_hours(time(3, 0), start, end) is True
+        assert in_quiet_hours(time(12, 0), start, end) is False
+
+    def test_window_within_one_day(self) -> None:
+        start, end = time(1, 0), time(5, 0)
+        assert in_quiet_hours(time(3, 0), start, end) is True
+        assert in_quiet_hours(time(23, 0), start, end) is False
+
+    def test_boundaries_are_half_open(self) -> None:
+        start, end = time(23, 0), time(6, 0)
+        assert in_quiet_hours(time(23, 0), start, end) is True
+        assert in_quiet_hours(time(6, 0), start, end) is False
+
+    def test_empty_window_is_never_quiet(self) -> None:
+        assert in_quiet_hours(time(3, 0), time(6, 0), time(6, 0)) is False
+
+
+# ── TestNextPollMinutes ──────────────────────────────────────────────────────
+
+
+NIGHT_START, NIGHT_END = time(23, 0), time(6, 0)
+
+
+def _at(hour: int, minute: int = 0) -> datetime:
+    return datetime(2026, 6, 15, hour, minute, tzinfo=UTC)
+
+
+class TestNextPollMinutes:
+    def test_daytime_uses_the_day_interval(self) -> None:
+        assert next_poll_minutes(_at(12), 30, 180, NIGHT_START, NIGHT_END) == 30
+
+    def test_night_uses_the_night_interval(self) -> None:
+        assert next_poll_minutes(_at(1), 30, 180, NIGHT_START, NIGHT_END) == 180
+
+    def test_night_interval_never_overshoots_the_window(self) -> None:
+        """The first daytime poll should land as the window closes, not later.
+
+        Anything reading Spond over breakfast would otherwise see a picture
+        from the middle of the night.
+        """
+        assert next_poll_minutes(_at(4), 30, 180, NIGHT_START, NIGHT_END) == 120
+        assert next_poll_minutes(_at(5, 30), 30, 180, NIGHT_START, NIGHT_END) == 30
+
+    def test_before_midnight_counts_to_the_next_morning(self) -> None:
+        assert next_poll_minutes(_at(23, 30), 30, 180, NIGHT_START, NIGHT_END) == 180
+
+    def test_zero_night_interval_disables_the_feature(self) -> None:
+        assert next_poll_minutes(_at(3), 30, 0, NIGHT_START, NIGHT_END) == 30
+
+    def test_night_interval_shorter_than_day_is_ignored(self) -> None:
+        """Polling harder at night is never what anyone meant."""
+        assert next_poll_minutes(_at(3), 30, 15, NIGHT_START, NIGHT_END) == 30
+        assert next_poll_minutes(_at(3), 30, 30, NIGHT_START, NIGHT_END) == 30
+
+    def test_never_returns_zero_at_the_boundary(self) -> None:
+        assert (
+            next_poll_minutes(
+                _at(
+                    5,
+                    59,
+                ),
+                30,
+                180,
+                NIGHT_START,
+                NIGHT_END,
+            )
+            >= 1
+        )

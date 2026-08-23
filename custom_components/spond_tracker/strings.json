@@ -50,6 +50,9 @@
         "description": "Configured accounts:\n{accounts}",
         "data": {
           "poll_interval": "Polling interval (minutes)",
+          "night_poll_interval": "Night polling interval (minutes, 0 to poll at the same rate around the clock)",
+          "night_start": "Night starts",
+          "night_end": "Night ends",
           "include_uninvited": "Show events whose invitation has not been sent yet",
           "uninvited_horizon_days": "Days ahead to look for unsent invitations (needs the setting above; never exceeds the window below)",
           "event_window_days": "Days ahead to fetch events",

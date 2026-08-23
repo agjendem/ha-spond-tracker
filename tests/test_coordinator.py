@@ -13,6 +13,9 @@ from custom_components.spond_tracker.const import (
     CONF_EVENT_WINDOW_DAYS,
     CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
+    CONF_NIGHT_END,
+    CONF_NIGHT_POLL_INTERVAL,
+    CONF_NIGHT_START,
     CONF_PASSWORD,
     CONF_UNINVITED_HORIZON_DAYS,
     CONF_USERNAME,
@@ -312,3 +315,57 @@ async def test_ceiling_warning_names_the_fetch_that_hit_it(mock_spond_cls, hass,
         await _do_refresh(coord)
     assert "confirmed fetch" in caplog.text
     assert "uninvited fetch" in caplog.text
+
+
+# ── day/night polling ────────────────────────────────────────────────────────
+
+
+# Quiet hours are evaluated in the instance's local time, and the test harness
+# defaults to US/Pacific — so every test here pins the zone explicitly.
+NIGHT_OPTIONS = {
+    CONF_NIGHT_POLL_INTERVAL: 180,
+    CONF_NIGHT_START: "23:00:00",
+    CONF_NIGHT_END: "06:00:00",
+}
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+@pytest.mark.freeze_time("2026-06-15 12:00:00+02:00")
+async def test_daytime_keeps_the_normal_interval(mock_spond_cls, hass):
+    await hass.config.async_set_time_zone("Europe/Oslo")
+    mock_spond_cls.return_value = _mock_spond_instance()
+    coord = SpondDataUpdateCoordinator(hass, _make_entry(hass, options=NIGHT_OPTIONS))
+    await _do_refresh(coord)
+    assert coord.update_interval == timedelta(minutes=30)
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+@pytest.mark.freeze_time("2026-06-15 01:00:00+02:00")
+async def test_night_stretches_the_interval(mock_spond_cls, hass):
+    await hass.config.async_set_time_zone("Europe/Oslo")
+    mock_spond_cls.return_value = _mock_spond_instance()
+    coord = SpondDataUpdateCoordinator(hass, _make_entry(hass, options=NIGHT_OPTIONS))
+    await _do_refresh(coord)
+    assert coord.update_interval == timedelta(minutes=180)
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+@pytest.mark.freeze_time("2026-06-15 04:30:00+02:00")
+async def test_last_night_poll_lands_when_the_window_closes(mock_spond_cls, hass):
+    """90 minutes to 06:00, not a full 180 that would overshoot to 07:30."""
+    await hass.config.async_set_time_zone("Europe/Oslo")
+    mock_spond_cls.return_value = _mock_spond_instance()
+    coord = SpondDataUpdateCoordinator(hass, _make_entry(hass, options=NIGHT_OPTIONS))
+    await _do_refresh(coord)
+    assert coord.update_interval == timedelta(minutes=90)
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+@pytest.mark.freeze_time("2026-06-15 03:00:00+02:00")
+async def test_night_polling_is_off_by_default(mock_spond_cls, hass):
+    """Existing installs must keep polling exactly as they did."""
+    await hass.config.async_set_time_zone("Europe/Oslo")
+    mock_spond_cls.return_value = _mock_spond_instance()
+    coord = SpondDataUpdateCoordinator(hass, _make_entry(hass))
+    await _do_refresh(coord)
+    assert coord.update_interval == timedelta(minutes=30)
