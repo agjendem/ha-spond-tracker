@@ -19,6 +19,18 @@ DEFAULT_POLL_INTERVAL = 30  # minutes
 CONF_INCLUDE_UNINVITED = "include_uninvited"
 DEFAULT_INCLUDE_UNINVITED = False
 
+# Spond embeds the full recipient list — every player plus their guardians — in
+# each event, so one event weighs about 24 KB. How far ahead to look is
+# therefore the single biggest lever on how much gets downloaded, which is why
+# both horizons are settings rather than constants.
+CONF_EVENT_WINDOW_DAYS = "event_window_days"
+DEFAULT_EVENT_WINDOW_DAYS = 60
+
+# Uninvited events are what make the payload large, and they are the least
+# interesting far ahead: nothing can be answered and the plans still change.
+CONF_UNINVITED_HORIZON_DAYS = "uninvited_horizon_days"
+DEFAULT_UNINVITED_HORIZON_DAYS = 14
+
 PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
 
 # --- Actions ---

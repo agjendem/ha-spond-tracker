@@ -51,6 +51,8 @@
         "data": {
           "poll_interval": "Oppdateringsintervall (minutter)",
           "include_uninvited": "Vis arrangementer der invitasjonen ikke er sendt ennå",
+          "uninvited_horizon_days": "Dager fram for arrangementer uten utsendt invitasjon (krever innstillingen over; går aldri lenger enn vinduet under)",
+          "event_window_days": "Dager fram det hentes arrangementer for",
           "action": "Handling"
         }
       },

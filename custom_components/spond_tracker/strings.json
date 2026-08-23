@@ -51,6 +51,8 @@
         "data": {
           "poll_interval": "Polling interval (minutes)",
           "include_uninvited": "Show events whose invitation has not been sent yet",
+          "uninvited_horizon_days": "Days ahead to look for unsent invitations (needs the setting above; never exceeds the window below)",
+          "event_window_days": "Days ahead to fetch events",
           "action": "Action"
         }
       },

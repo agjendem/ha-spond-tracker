@@ -21,13 +21,17 @@ from spond import spond as spond_lib
 
 from .const import (
     CONF_ACCOUNTS,
+    CONF_EVENT_WINDOW_DAYS,
     CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
     CONF_PASSWORD,
     CONF_POLL_INTERVAL,
+    CONF_UNINVITED_HORIZON_DAYS,
     CONF_USERNAME,
+    DEFAULT_EVENT_WINDOW_DAYS,
     DEFAULT_INCLUDE_UNINVITED,
     DEFAULT_POLL_INTERVAL,
+    DEFAULT_UNINVITED_HORIZON_DAYS,
     DOMAIN,
     SNOOZE_STORAGE_KEY,
     SNOOZE_STORAGE_VERSION,
@@ -40,8 +44,9 @@ _LOGGER = logging.getLogger(__name__)
 # Spond returns roughly 20 events per account over 60 days with uninvited ones
 # filtered out, and roughly 170 with them included. The ceiling sits well clear
 # of both, because hitting it drops the far end of the window without a word.
+# It is a safety net rather than a preference, so it stays a constant while the
+# windows themselves are configurable.
 MAX_EVENTS = 400
-EVENT_WINDOW_DAYS = 60
 
 
 @dataclass
@@ -101,9 +106,25 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # seen_uids deduplicates events that appear in multiple accounts for the same member
         seen_uids: dict[str, set[str]] = {m["canonical"]: set() for m in tracked_members}
 
+        window_days = self.entry.options.get(CONF_EVENT_WINDOW_DAYS, DEFAULT_EVENT_WINDOW_DAYS)
         include_uninvited = self.entry.options.get(
             CONF_INCLUDE_UNINVITED, DEFAULT_INCLUDE_UNINVITED
         )
+        # Never reach further for uninvited events than for confirmed ones: that
+        # would put provisional events on dates where no confirmed event can
+        # appear at all.
+        uninvited_days = min(
+            self.entry.options.get(CONF_UNINVITED_HORIZON_DAYS, DEFAULT_UNINVITED_HORIZON_DAYS),
+            window_days,
+        )
+
+        # Confirmed events are few and cheap, so they get the full window. The
+        # uninvited ones are the bulk of the payload and the least useful far
+        # out, so they get a shorter one. With the option off this stays a
+        # single request, exactly as before.
+        fetches: list[tuple[str, int, bool]] = [("confirmed", window_days, False)]
+        if include_uninvited:
+            fetches.append(("uninvited", uninvited_days, True))
 
         accounts = self._get_accounts()
         any_success = False
@@ -114,24 +135,35 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
             s = spond_lib.Spond(username=acc_username, password=acc[CONF_PASSWORD])
             try:
                 now_utc = datetime.now(UTC)
-                raw_events = await s.get_events(
-                    min_end=now_utc,
-                    max_end=now_utc + timedelta(days=EVENT_WINDOW_DAYS),
-                    max_events=MAX_EVENTS,
-                    # Off by default in the library "for performance reasons",
-                    # which quietly hides every event whose invitation has not
-                    # been sent — most of a season.
-                    include_scheduled=include_uninvited,
-                )
-                _LOGGER.debug("Spond[%s]: fetched %d events", acc_username, len(raw_events))
-                if len(raw_events) >= MAX_EVENTS:
-                    _LOGGER.warning(
-                        "Spond[%s]: hit the %d-event ceiling, so events near the end of "
-                        "the %d-day window are missing. Raise MAX_EVENTS.",
-                        acc_username,
-                        MAX_EVENTS,
-                        EVENT_WINDOW_DAYS,
+                batches: list[list[dict]] = []
+                for label, days, scheduled in fetches:
+                    raw_events = await s.get_events(
+                        min_end=now_utc,
+                        max_end=now_utc + timedelta(days=days),
+                        max_events=MAX_EVENTS,
+                        # Off by default in the library "for performance
+                        # reasons", which quietly hides every event whose
+                        # invitation has not been sent — most of a season.
+                        include_scheduled=scheduled,
                     )
+                    _LOGGER.debug(
+                        "Spond[%s]: %s fetch over %d days returned %d events",
+                        acc_username,
+                        label,
+                        days,
+                        len(raw_events),
+                    )
+                    if len(raw_events) >= MAX_EVENTS:
+                        _LOGGER.warning(
+                            "Spond[%s]: the %s fetch hit the %d-event ceiling, so events "
+                            "near the end of its %d-day window are missing. Shorten the "
+                            "window in the integration options.",
+                            acc_username,
+                            label,
+                            MAX_EVENTS,
+                            days,
+                        )
+                    batches.append(raw_events)
                 any_success = True
             except Exception as e:
                 err = str(e).lower()
@@ -149,15 +181,18 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 with contextlib.suppress(Exception):
                     await s.clientsession.close()
 
-            process_raw_events(
-                raw_events,
-                canonical_names,
-                seen_uids,
-                events_per_member,
-                tasks_per_member,
-                account=acc_username,
-                now=now_utc,
-            )
+            # seen_uids dedupes the overlap between the two fetches, exactly as
+            # it already dedupes an event shared by two accounts.
+            for raw_events in batches:
+                process_raw_events(
+                    raw_events,
+                    canonical_names,
+                    seen_uids,
+                    events_per_member,
+                    tasks_per_member,
+                    account=acc_username,
+                    now=now_utc,
+                )
 
         if not any_success and accounts:
             if auth_failed and len(auth_failed) == len(accounts):

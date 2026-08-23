@@ -10,9 +10,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.spond_tracker.const import (
     CONF_ACCOUNTS,
+    CONF_EVENT_WINDOW_DAYS,
     CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
     CONF_PASSWORD,
+    CONF_UNINVITED_HORIZON_DAYS,
     CONF_USERNAME,
     DOMAIN,
 )
@@ -197,3 +199,116 @@ async def test_hitting_the_ceiling_is_logged(mock_spond_cls, hass, caplog):
     with caplog.at_level(logging.WARNING):
         await _do_refresh(coord)
     assert "ceiling" in caplog.text
+
+
+# ── split fetch: confirmed window vs uninvited horizon ───────────────────────
+
+
+def _window_days(call) -> int:
+    """Days between min_end and max_end of one get_events call."""
+    kw = call.kwargs
+    return round((kw["max_end"] - kw["min_end"]).total_seconds() / 86400)
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_option_off_makes_a_single_request(mock_spond_cls, hass):
+    """With uninvited events off nothing about the request should change."""
+    instance = _mock_spond_instance()
+    mock_spond_cls.return_value = instance
+    coord = SpondDataUpdateCoordinator(hass, _make_entry(hass))
+    await _do_refresh(coord)
+    assert instance.get_events.await_count == 1
+    call = instance.get_events.await_args_list[0]
+    assert call.kwargs["include_scheduled"] is False
+    assert _window_days(call) == 60
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_option_on_splits_into_two_requests(mock_spond_cls, hass):
+    """Confirmed events keep the full window; only uninvited ones are cut short."""
+    instance = _mock_spond_instance()
+    mock_spond_cls.return_value = instance
+    entry = _make_entry(hass, options={CONF_INCLUDE_UNINVITED: True})
+    coord = SpondDataUpdateCoordinator(hass, entry)
+    await _do_refresh(coord)
+    assert instance.get_events.await_count == 2
+    confirmed, uninvited = instance.get_events.await_args_list
+    assert confirmed.kwargs["include_scheduled"] is False
+    assert _window_days(confirmed) == 60
+    assert uninvited.kwargs["include_scheduled"] is True
+    assert _window_days(uninvited) == 14
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_both_windows_are_configurable(mock_spond_cls, hass):
+    instance = _mock_spond_instance()
+    mock_spond_cls.return_value = instance
+    entry = _make_entry(
+        hass,
+        options={
+            CONF_INCLUDE_UNINVITED: True,
+            CONF_EVENT_WINDOW_DAYS: 90,
+            CONF_UNINVITED_HORIZON_DAYS: 21,
+        },
+    )
+    coord = SpondDataUpdateCoordinator(hass, entry)
+    await _do_refresh(coord)
+    confirmed, uninvited = instance.get_events.await_args_list
+    assert _window_days(confirmed) == 90
+    assert _window_days(uninvited) == 21
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_uninvited_horizon_is_clamped_to_the_window(mock_spond_cls, hass):
+    """Provisional events on dates with no confirmed events would make no sense."""
+    instance = _mock_spond_instance()
+    mock_spond_cls.return_value = instance
+    entry = _make_entry(
+        hass,
+        options={
+            CONF_INCLUDE_UNINVITED: True,
+            CONF_EVENT_WINDOW_DAYS: 7,
+            CONF_UNINVITED_HORIZON_DAYS: 30,
+        },
+    )
+    coord = SpondDataUpdateCoordinator(hass, entry)
+    await _do_refresh(coord)
+    confirmed, uninvited = instance.get_events.await_args_list
+    assert _window_days(confirmed) == 7
+    assert _window_days(uninvited) == 7
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_event_present_in_both_fetches_is_not_duplicated(mock_spond_cls, hass):
+    """The two windows overlap by design, so the same event arrives twice."""
+    event = {
+        "id": "e1",
+        "heading": "Practice",
+        "startTimestamp": NOW.isoformat().replace("+00:00", "Z"),
+        "endTimestamp": TOMORROW.isoformat().replace("+00:00", "Z"),
+        "cancelled": False,
+        "behalfOfIds": ["m1"],
+        "recipients": {"group": {"members": [{"id": "m1", "firstName": "Alice"}]}},
+        "responses": {"acceptedIds": ["m1"]},
+        "tasks": {},
+    }
+    instance = _mock_spond_instance(events=[event])
+    mock_spond_cls.return_value = instance
+    entry = _make_entry(hass, options={CONF_INCLUDE_UNINVITED: True})
+    coord = SpondDataUpdateCoordinator(hass, entry)
+    await _do_refresh(coord)
+    assert instance.get_events.await_count == 2
+    assert len(coord.data.events["alice"]) == 1
+
+
+@patch("custom_components.spond_tracker.coordinator.spond_lib.Spond")
+async def test_ceiling_warning_names_the_fetch_that_hit_it(mock_spond_cls, hass, caplog):
+    """Both requests have their own ceiling, so the log has to say which one."""
+    instance = _mock_spond_instance(events=[{"id": f"e{i}"} for i in range(MAX_EVENTS)])
+    mock_spond_cls.return_value = instance
+    entry = _make_entry(hass, options={CONF_INCLUDE_UNINVITED: True})
+    coord = SpondDataUpdateCoordinator(hass, entry)
+    with caplog.at_level(logging.WARNING):
+        await _do_refresh(coord)
+    assert "confirmed fetch" in caplog.text
+    assert "uninvited fetch" in caplog.text
