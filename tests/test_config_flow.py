@@ -14,6 +14,9 @@ from custom_components.spond_tracker.const import (
     CONF_EVENT_WINDOW_DAYS,
     CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
+    CONF_NIGHT_END,
+    CONF_NIGHT_POLL_INTERVAL,
+    CONF_NIGHT_START,
     CONF_PASSWORD,
     CONF_POLL_INTERVAL,
     CONF_UNINVITED_HORIZON_DAYS,
@@ -315,6 +318,29 @@ async def test_options_windows_keep_previous_values_as_defaults(hass, config_ent
     horizon = next(k for k in schema if str(k) == CONF_UNINVITED_HORIZON_DAYS)
     assert window.default() == 30
     assert horizon.default() == 5
+
+
+async def test_options_night_polling_defaults_to_off(hass, config_entry):
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    schema = result["data_schema"].schema
+    night = next(k for k in schema if str(k) == CONF_NIGHT_POLL_INTERVAL)
+    assert night.default() == 0
+
+
+async def test_options_saves_night_polling(hass, config_entry):
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_POLL_INTERVAL: 30,
+            CONF_NIGHT_POLL_INTERVAL: 180,
+            CONF_NIGHT_START: "22:30:00",
+            CONF_NIGHT_END: "06:00:00",
+        },
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["data"][CONF_NIGHT_POLL_INTERVAL] == 180
+    assert result2["data"][CONF_NIGHT_START] == "22:30:00"
 
 
 # ── OptionsFlow: add account ──────────────────────────────────────────────────

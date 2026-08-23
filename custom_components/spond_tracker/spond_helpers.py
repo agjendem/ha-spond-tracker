@@ -4,7 +4,7 @@ Nothing here touches HA or Spond directly.
 """
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 
 # A member sits in `unansweredIds` both when they genuinely have not replied and
 # when the invitation has not gone out at all. Only the first is actionable, so
@@ -405,3 +405,55 @@ def process_raw_events(
                     "open_tasks_count": open_tasks_count,
                 }
             )
+
+
+def parse_clock(value: object, fallback: str) -> time:
+    """Parse an "HH:MM" / "HH:MM:SS" option into a time, falling back on junk."""
+    for candidate in (value, fallback):
+        if isinstance(candidate, str) and candidate:
+            parts = candidate.split(":")
+            try:
+                hour, minute = int(parts[0]), int(parts[1])
+                second = int(parts[2]) if len(parts) > 2 else 0
+                return time(hour, minute, second)
+            except ValueError, IndexError:
+                continue
+    return time(0, 0)
+
+
+def in_quiet_hours(now_t: time, start: time, end: time) -> bool:
+    """Whether `now_t` falls in the window, which may wrap past midnight."""
+    if start == end:
+        return False
+    if start < end:
+        return start <= now_t < end
+    return now_t >= start or now_t < end
+
+
+def next_poll_minutes(
+    now: datetime,
+    day_minutes: int,
+    night_minutes: int,
+    start: time,
+    end: time,
+) -> int:
+    """How long to wait before the next poll, given the time of day.
+
+    Nothing observable happens overnight — no invitation goes out and no event
+    starts — so the interval can stretch. It is deliberately not allowed to
+    stretch *past* the end of the quiet window: the first daytime poll should
+    land as the window closes, so anything reading Spond data over breakfast
+    sees a fresh picture rather than one from hours earlier.
+    """
+    # A night interval that is absent, zero, or no longer than the daytime one
+    # has nothing to offer, so the whole feature stays out of the way.
+    if night_minutes <= 0 or night_minutes <= day_minutes:
+        return day_minutes
+    if not in_quiet_hours(now.time(), start, end):
+        return day_minutes
+
+    end_dt = now.replace(hour=end.hour, minute=end.minute, second=end.second, microsecond=0)
+    if end_dt <= now:
+        end_dt += timedelta(days=1)
+    minutes_left = max(1, round((end_dt - now).total_seconds() / 60))
+    return min(night_minutes, minutes_left)

@@ -24,19 +24,30 @@ from .const import (
     CONF_EVENT_WINDOW_DAYS,
     CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
+    CONF_NIGHT_END,
+    CONF_NIGHT_POLL_INTERVAL,
+    CONF_NIGHT_START,
     CONF_PASSWORD,
     CONF_POLL_INTERVAL,
     CONF_UNINVITED_HORIZON_DAYS,
     CONF_USERNAME,
     DEFAULT_EVENT_WINDOW_DAYS,
     DEFAULT_INCLUDE_UNINVITED,
+    DEFAULT_NIGHT_END,
+    DEFAULT_NIGHT_POLL_INTERVAL,
+    DEFAULT_NIGHT_START,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_UNINVITED_HORIZON_DAYS,
     DOMAIN,
     SNOOZE_STORAGE_KEY,
     SNOOZE_STORAGE_VERSION,
 )
-from .spond_helpers import event_fingerprint, process_raw_events
+from .spond_helpers import (
+    event_fingerprint,
+    next_poll_minutes,
+    parse_clock,
+    process_raw_events,
+)
 from .spond_i18n import TRANSLATIONS_DIR, load_translations
 
 _LOGGER = logging.getLogger(__name__)
@@ -96,7 +107,29 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _get_accounts(self) -> list[dict]:
         return self.entry.data.get(CONF_ACCOUNTS, [])
 
+    def _apply_poll_interval(self) -> None:
+        """Pick the interval for the next poll from the time of day.
+
+        DataUpdateCoordinator reads `update_interval` when it schedules the next
+        refresh, which happens after this one finishes, so setting it here takes
+        effect from the next tick onwards.
+        """
+        options = self.entry.options
+        day = options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
+        night = options.get(CONF_NIGHT_POLL_INTERVAL, DEFAULT_NIGHT_POLL_INTERVAL)
+        minutes = next_poll_minutes(
+            dt_util.now(),
+            day,
+            night,
+            parse_clock(options.get(CONF_NIGHT_START), DEFAULT_NIGHT_START),
+            parse_clock(options.get(CONF_NIGHT_END), DEFAULT_NIGHT_END),
+        )
+        if self.update_interval != timedelta(minutes=minutes):
+            _LOGGER.debug("Spond: next poll in %d minutes", minutes)
+        self.update_interval = timedelta(minutes=minutes)
+
     async def _async_update_data(self) -> CoordinatorData:
+        self._apply_poll_interval()
         await self._load_strings()
         tracked_members: list[dict] = self.entry.data.get(CONF_MEMBERS, [])
         canonical_names = {m["canonical"] for m in tracked_members}

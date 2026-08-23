@@ -50,6 +50,9 @@
         "description": "Konfigurerte kontoer:\n{accounts}",
         "data": {
           "poll_interval": "Oppdateringsintervall (minutter)",
+          "night_poll_interval": "Oppdateringsintervall om natta (minutter, 0 for samme takt hele døgnet)",
+          "night_start": "Natta begynner",
+          "night_end": "Natta slutter",
           "include_uninvited": "Vis arrangementer der invitasjonen ikke er sendt ennå",
           "uninvited_horizon_days": "Dager fram for arrangementer uten utsendt invitasjon (krever innstillingen over; går aldri lenger enn vinduet under)",
           "event_window_days": "Dager fram det hentes arrangementer for",
