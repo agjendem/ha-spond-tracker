@@ -16,13 +16,17 @@ from spond import spond as spond_lib
 
 from .const import (
     CONF_ACCOUNTS,
+    CONF_EVENT_WINDOW_DAYS,
     CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
     CONF_PASSWORD,
     CONF_POLL_INTERVAL,
+    CONF_UNINVITED_HORIZON_DAYS,
     CONF_USERNAME,
+    DEFAULT_EVENT_WINDOW_DAYS,
     DEFAULT_INCLUDE_UNINVITED,
     DEFAULT_POLL_INTERVAL,
+    DEFAULT_UNINVITED_HORIZON_DAYS,
     DOMAIN,
 )
 from .spond_helpers import members_from_events
@@ -314,6 +318,16 @@ class SpondTrackerOptionsFlow(OptionsFlow):
                         CONF_INCLUDE_UNINVITED,
                         default=current.get(CONF_INCLUDE_UNINVITED, DEFAULT_INCLUDE_UNINVITED),
                     ): selector.BooleanSelector(),
+                    vol.Required(
+                        CONF_UNINVITED_HORIZON_DAYS,
+                        default=current.get(
+                            CONF_UNINVITED_HORIZON_DAYS, DEFAULT_UNINVITED_HORIZON_DAYS
+                        ),
+                    ): vol.All(int, vol.Range(min=1, max=60)),
+                    vol.Required(
+                        CONF_EVENT_WINDOW_DAYS,
+                        default=current.get(CONF_EVENT_WINDOW_DAYS, DEFAULT_EVENT_WINDOW_DAYS),
+                    ): vol.All(int, vol.Range(min=1, max=180)),
                     vol.Optional("action"): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=action_values,

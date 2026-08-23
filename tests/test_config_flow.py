@@ -11,13 +11,17 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.spond_tracker.config_flow import CannotConnect, InvalidAuth
 from custom_components.spond_tracker.const import (
     CONF_ACCOUNTS,
+    CONF_EVENT_WINDOW_DAYS,
     CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
     CONF_PASSWORD,
     CONF_POLL_INTERVAL,
+    CONF_UNINVITED_HORIZON_DAYS,
     CONF_USERNAME,
+    DEFAULT_EVENT_WINDOW_DAYS,
     DEFAULT_INCLUDE_UNINVITED,
     DEFAULT_POLL_INTERVAL,
+    DEFAULT_UNINVITED_HORIZON_DAYS,
     DOMAIN,
 )
 
@@ -272,6 +276,45 @@ async def test_options_uninvited_keeps_previous_choice_as_default(hass, config_e
     schema = result["data_schema"].schema
     key = next(k for k in schema if str(k) == CONF_INCLUDE_UNINVITED)
     assert key.default() is True
+
+
+async def test_options_window_defaults_match_current_behaviour(hass, config_entry):
+    """Defaults must reproduce the pre-existing 60-day fetch exactly."""
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    schema = result["data_schema"].schema
+    window = next(k for k in schema if str(k) == CONF_EVENT_WINDOW_DAYS)
+    horizon = next(k for k in schema if str(k) == CONF_UNINVITED_HORIZON_DAYS)
+    assert window.default() == DEFAULT_EVENT_WINDOW_DAYS == 60
+    assert horizon.default() == DEFAULT_UNINVITED_HORIZON_DAYS == 14
+
+
+async def test_options_saves_both_windows(hass, config_entry):
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_POLL_INTERVAL: 30,
+            CONF_INCLUDE_UNINVITED: True,
+            CONF_UNINVITED_HORIZON_DAYS: 7,
+            CONF_EVENT_WINDOW_DAYS: 90,
+        },
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["data"][CONF_UNINVITED_HORIZON_DAYS] == 7
+    assert result2["data"][CONF_EVENT_WINDOW_DAYS] == 90
+
+
+async def test_options_windows_keep_previous_values_as_defaults(hass, config_entry):
+    hass.config_entries.async_update_entry(
+        config_entry,
+        options={CONF_EVENT_WINDOW_DAYS: 30, CONF_UNINVITED_HORIZON_DAYS: 5},
+    )
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    schema = result["data_schema"].schema
+    window = next(k for k in schema if str(k) == CONF_EVENT_WINDOW_DAYS)
+    horizon = next(k for k in schema if str(k) == CONF_UNINVITED_HORIZON_DAYS)
+    assert window.default() == 30
+    assert horizon.default() == 5
 
 
 # ── OptionsFlow: add account ──────────────────────────────────────────────────

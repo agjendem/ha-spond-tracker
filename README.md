@@ -78,6 +78,9 @@ After setup, go to **Options** to:
   calendar, sensors, and device.
 - **Show events whose invitation has not been sent yet** — off by default; see
   below.
+- **Days ahead to fetch events** — default 60.
+- **Days ahead to look for unsent invitations** — default 14, never more than
+  the window above.
 - Add a second (or third) Spond account.
 - Remove an account.
 
@@ -91,6 +94,33 @@ few days into the future — the rest of the season exists but is invisible.
 Turning this option on asks for those events too. Expect a much larger
 response: a typical account returns roughly 20 events over 60 days without
 them and roughly 170 with them, which is why the option is off by default.
+
+Spond embeds the full recipient list — every player plus their guardians — in
+each event, so one event weighs about 24 KB and how far ahead you look is the
+main thing that decides how much gets downloaded. Measured across two accounts:
+
+| Window | Events | Downloaded |
+|---|---|---|
+| 7 days | 49 | 1.0 MB |
+| 14 days | 94 | 2.1 MB |
+| 30 days | 208 | 4.6 MB |
+| 60 days | 315 | 7.6 MB |
+
+So the two horizons are separate settings. Confirmed events are few and cheap
+and worth having far ahead — a tournament two months out belongs in the
+calendar. Uninvited ones are the bulk of the payload and the least useful far
+out: nothing can be answered yet and the plans still change. With the option on
+the integration therefore makes two requests per account, one for confirmed
+events over the full window and one for everything over the shorter horizon:
+
+| Strategy | Downloaded | Confirmed events reach |
+|---|---|---|
+| Everything over 60 days | 7.6 MB | 60 days |
+| Everything over 14 days | 2.1 MB | 14 days |
+| **60-day window, 14-day horizon** (default) | **3.2 MB** | **60 days** |
+
+Shortening only the horizon costs no tasks in practice — assignments land days,
+not months, before the event.
 
 Once an event is included, it needs distinguishing. Spond keeps everyone in
 `unansweredIds` until the invitation goes out, so a not-yet-announced event is
@@ -381,8 +411,9 @@ additions, removals, or changes since the previous poll.
 - **Members are discovered from events** — someone with no upcoming events is
   invisible to Spond's API, so they cannot be offered at setup. Re-run
   **Options → Manage tracked members** once their season starts.
-- **60-day window** — only events starting within the next 60 days are
-  fetched. Events further in the future will not appear in the calendar.
+- **Fetch window** — only events starting within the window are fetched
+  (60 days by default, configurable). Events beyond it will not appear in the
+  calendar.
 - **Unsent invitations are opt-in** — with the option off, events only become
   visible once their invitation is sent, which for many clubs is a few days
   before they happen.
