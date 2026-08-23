@@ -6,6 +6,7 @@ that conftest.py places first in sys.path (which would otherwise resolve
 """
 
 import importlib.util
+from datetime import UTC, datetime
 from pathlib import Path
 
 # ── load native module ────────────────────────────────────────────────────────
@@ -23,6 +24,8 @@ process_raw_events = _mod.process_raw_events
 people_in_event = _mod.people_in_event
 task_view = _mod.task_view
 event_fingerprint = _mod.event_fingerprint
+invitation_pending = _mod.invitation_pending
+STATUS_NOT_INVITED = _mod.STATUS_NOT_INVITED
 
 
 # ── helpers shared across test classes ───────────────────────────────────────
@@ -47,6 +50,7 @@ def _make_event(
     response: str = "accepted",  # accepted | declined | waitinglist | unanswered | none
     open_tasks: list | None = None,
     assigned_tasks: list | None = None,
+    invite_time: str | None = None,
 ) -> dict:
     responses: dict = {
         "acceptedIds": [],
@@ -64,7 +68,7 @@ def _make_event(
         responses["unansweredIds"] = [member_id]
     # "none" -> not in any list (unknown status)
 
-    return {
+    event = {
         "id": ev_id,
         "heading": heading,
         "startTimestamp": start,
@@ -79,6 +83,10 @@ def _make_event(
             "assignedTasks": assigned_tasks or [],
         },
     }
+    if invite_time is not None:
+        # Spond only carries this field while the invitation is still unsent.
+        event["inviteTime"] = invite_time
+    return event
 
 
 def _fresh_state(*canonicals: str) -> tuple:
@@ -659,3 +667,133 @@ class TestFingerprintTaskStatus:
         after = event_fingerprint({"my_tasks": [{"name": "Drive", "status": "accepted"}]})
         assert before["my_tasks"] == after["my_tasks"]
         assert before["my_task_states"] != after["my_task_states"]
+
+
+# ── TestInvitationPending ────────────────────────────────────────────────────
+
+
+NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
+
+
+class TestInvitationPending:
+    def test_future_invite_time_is_pending(self) -> None:
+        assert invitation_pending({"inviteTime": "2026-06-05T08:00:00Z"}, NOW) is True
+
+    def test_past_invite_time_is_not_pending(self) -> None:
+        assert invitation_pending({"inviteTime": "2026-05-30T08:00:00Z"}, NOW) is False
+
+    def test_absent_field_is_not_pending(self) -> None:
+        """Spond drops the field once the invitation has gone out."""
+        assert invitation_pending({}, NOW) is False
+
+    def test_naive_timestamp_is_read_as_utc(self) -> None:
+        assert invitation_pending({"inviteTime": "2026-06-05T08:00:00"}, NOW) is True
+
+    def test_unparseable_timestamp_is_not_pending(self) -> None:
+        """A shape we do not recognise must not hide a real event."""
+        assert invitation_pending({"inviteTime": "sometime next week"}, NOW) is False
+
+    def test_non_string_is_not_pending(self) -> None:
+        assert invitation_pending({"inviteTime": 1234}, NOW) is False
+
+
+# ── TestNotInvitedStatus ─────────────────────────────────────────────────────
+
+
+class TestNotInvitedStatus:
+    def test_pending_invitation_gets_its_own_status(self) -> None:
+        """Spond parks the member in unansweredIds meanwhile — that is the trap."""
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event(
+            "e1", "m1", "Alice", response="unanswered", invite_time="2026-06-05T08:00:00Z"
+        )
+        process_raw_events([ev], cn, su, epm, tpm, now=NOW)
+        event = epm["alice"][0]
+        assert event["status"] == STATUS_NOT_INVITED
+        assert event["invited"] is False
+        assert event["invite_time"] == "2026-06-05T08:00:00Z"
+
+    def test_sent_invitation_stays_unanswered(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1", "Alice", response="unanswered")
+        process_raw_events([ev], cn, su, epm, tpm, now=NOW)
+        event = epm["alice"][0]
+        assert event["status"] == "unanswered"
+        assert event["invited"] is True
+        assert event["invite_time"] is None
+
+    def test_invite_time_in_the_past_is_treated_as_sent(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event(
+            "e1", "m1", "Alice", response="unanswered", invite_time="2026-05-01T08:00:00Z"
+        )
+        process_raw_events([ev], cn, su, epm, tpm, now=NOW)
+        assert epm["alice"][0]["status"] == "unanswered"
+        assert epm["alice"][0]["invited"] is True
+
+    def test_cancelled_outranks_pending_invitation(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event(
+            "e1",
+            "m1",
+            "Alice",
+            response="unanswered",
+            cancelled=True,
+            invite_time="2026-06-05T08:00:00Z",
+        )
+        process_raw_events([ev], cn, su, epm, tpm, now=NOW)
+        assert epm["alice"][0]["status"] == "cancelled"
+
+    def test_a_real_answer_outranks_pending_invitation(self) -> None:
+        """Not observed in the wild, but an answer is the stronger fact."""
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event(
+            "e1", "m1", "Alice", response="accepted", invite_time="2026-06-05T08:00:00Z"
+        )
+        process_raw_events([ev], cn, su, epm, tpm, now=NOW)
+        assert epm["alice"][0]["status"] == "accepted"
+        # The flag still records that the invitation has not gone out.
+        assert epm["alice"][0]["invited"] is False
+
+    def test_task_on_pending_event_carries_the_flag(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        task = {
+            "id": "t1",
+            "name": "Drive",
+            "type": "ASSIGNED",
+            "accepted": [],
+            "declined": [],
+            "unanswered": ["m1"],
+        }
+        ev = _make_event(
+            "e1",
+            "m1",
+            "Alice",
+            response="unanswered",
+            assigned_tasks=[task],
+            invite_time="2026-06-05T08:00:00Z",
+        )
+        process_raw_events([ev], cn, su, epm, tpm, now=NOW)
+        t = tpm["alice"]["e1::Drive"]
+        assert t["invited"] is False
+        assert t["invite_time"] == "2026-06-05T08:00:00Z"
+
+    def test_defaults_to_now_when_not_given(self) -> None:
+        """Callers that do not pin the clock still get sane results."""
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event(
+            "e1", "m1", "Alice", response="unanswered", invite_time="2099-01-01T00:00:00Z"
+        )
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert epm["alice"][0]["status"] == STATUS_NOT_INVITED
+
+
+class TestFingerprintInvited:
+    def test_invitation_going_out_registers_as_a_change(self) -> None:
+        """The transition is the moment answering becomes possible."""
+        before = event_fingerprint({"title": "Practice", "invited": False})
+        after = event_fingerprint({"title": "Practice", "invited": True})
+        assert before != after
+
+    def test_missing_flag_defaults_to_invited(self) -> None:
+        assert event_fingerprint({"title": "Practice"})["invited"] is True

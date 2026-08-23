@@ -27,6 +27,10 @@ member by first name.
 - **Status-aware** — accepted / declined / unanswered / waitinglist /
   cancelled shown as emoji prefixes. Declined events are hidden from the
   calendar. Cancelled events stay visible with a `🚫` prefix.
+- **Unsent invitations** — optionally include events whose invitation has not
+  gone out yet, marked `🕗 (Title)` so they read as provisional rather than as
+  something you have failed to answer. Off by default; see
+  [Showing unsent invitations](#showing-unsent-invitations).
 - **Per-member sensors** — event count for today and task count, with full
   detail in attributes.
 - **HA event bus** — fires `spond_event_added`, `spond_event_removed`,
@@ -72,8 +76,34 @@ After setup, go to **Options** to:
   not started yet was never offered. Members already tracked stay on the list
   even when they currently have no events, and unticking one removes its
   calendar, sensors, and device.
+- **Show events whose invitation has not been sent yet** — off by default; see
+  below.
 - Add a second (or third) Spond account.
 - Remove an account.
+
+### Showing unsent invitations
+
+Clubs usually create a whole season at once and let Spond send each invitation
+a few days before the event. Until that moment Spond hides the event from the
+API unless it is explicitly asked for, so by default a calendar only reaches a
+few days into the future — the rest of the season exists but is invisible.
+
+Turning this option on asks for those events too. Expect a much larger
+response: a typical account returns roughly 20 events over 60 days without
+them and roughly 170 with them, which is why the option is off by default.
+
+Once an event is included, it needs distinguishing. Spond keeps everyone in
+`unansweredIds` until the invitation goes out, so a not-yet-announced event is
+reported exactly like one you have been ignoring. This integration gives it a
+status of its own, `not_invited`:
+
+- Calendar summary reads `🕗 (Training)` rather than `❓ Training`.
+- The description says when the invitation is due to go out.
+- Event attributes carry `invited: false` and `invite_time`, and the events
+  sensor exposes `not_invited_count`.
+- The moment the invitation is sent, the event switches to `unanswered` on the
+  next poll and fires `spond_event_changed` with `invited` among the changed
+  fields — a clean trigger for "you can answer this now" notifications.
 
 ## What gets created
 
@@ -90,6 +120,9 @@ One `calendar.<member>` entity per tracked member. Each entry shows:
 |--------|-------|------------|
 | `sensor.spond_<member>` | Events today (int) | `today_events`, `next_event`, `upcoming_events` |
 | `sensor.spond_<member>_tasks` | Active tasks (int) | `tasks` list with event, time, co-assignees, `status`, `task_type`, `adults_only` |
+
+Tasks on an event whose invitation is still unsent carry `invited: false` and
+`invite_time`, and their calendar entry is parenthesised the same way.
 
 A task's `status` is `accepted`, `unanswered`, or `declined` — Spond asks named people and waits for an answer. Declined tasks are excluded from the count and the attribute list; an unanswered one is still counted, because that is exactly the task that needs chasing.
 
@@ -350,6 +383,9 @@ additions, removals, or changes since the previous poll.
   **Options → Manage tracked members** once their season starts.
 - **60-day window** — only events starting within the next 60 days are
   fetched. Events further in the future will not appear in the calendar.
+- **Unsent invitations are opt-in** — with the option off, events only become
+  visible once their invitation is sent, which for many clubs is a few days
+  before they happen.
 - **Poll-based change detection** — event bus events (`spond_event_added`,
   etc.) are fired between polls, not in real time. Expect up to one
   poll-interval of delay.

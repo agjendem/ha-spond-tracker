@@ -15,6 +15,7 @@ STATUS_EMOJI = {
     "accepted": "✅",
     "declined": "❌",
     "unanswered": "❓",
+    "not_invited": "🕗",
     "waitinglist": "⏳",
     "unknown": "❔",
     "cancelled": "🚫",

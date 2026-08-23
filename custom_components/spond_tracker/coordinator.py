@@ -21,10 +21,12 @@ from spond import spond as spond_lib
 
 from .const import (
     CONF_ACCOUNTS,
+    CONF_INCLUDE_UNINVITED,
     CONF_MEMBERS,
     CONF_PASSWORD,
     CONF_POLL_INTERVAL,
     CONF_USERNAME,
+    DEFAULT_INCLUDE_UNINVITED,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
     SNOOZE_STORAGE_KEY,
@@ -34,6 +36,12 @@ from .spond_helpers import event_fingerprint, process_raw_events
 from .spond_i18n import TRANSLATIONS_DIR, load_translations
 
 _LOGGER = logging.getLogger(__name__)
+
+# Spond returns roughly 20 events per account over 60 days with uninvited ones
+# filtered out, and roughly 170 with them included. The ceiling sits well clear
+# of both, because hitting it drops the far end of the window without a word.
+MAX_EVENTS = 400
+EVENT_WINDOW_DAYS = 60
 
 
 @dataclass
@@ -93,6 +101,10 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # seen_uids deduplicates events that appear in multiple accounts for the same member
         seen_uids: dict[str, set[str]] = {m["canonical"]: set() for m in tracked_members}
 
+        include_uninvited = self.entry.options.get(
+            CONF_INCLUDE_UNINVITED, DEFAULT_INCLUDE_UNINVITED
+        )
+
         accounts = self._get_accounts()
         any_success = False
         auth_failed: list[str] = []
@@ -104,10 +116,22 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 now_utc = datetime.now(UTC)
                 raw_events = await s.get_events(
                     min_end=now_utc,
-                    max_end=now_utc + timedelta(days=60),
-                    max_events=200,
+                    max_end=now_utc + timedelta(days=EVENT_WINDOW_DAYS),
+                    max_events=MAX_EVENTS,
+                    # Off by default in the library "for performance reasons",
+                    # which quietly hides every event whose invitation has not
+                    # been sent — most of a season.
+                    include_scheduled=include_uninvited,
                 )
                 _LOGGER.debug("Spond[%s]: fetched %d events", acc_username, len(raw_events))
+                if len(raw_events) >= MAX_EVENTS:
+                    _LOGGER.warning(
+                        "Spond[%s]: hit the %d-event ceiling, so events near the end of "
+                        "the %d-day window are missing. Raise MAX_EVENTS.",
+                        acc_username,
+                        MAX_EVENTS,
+                        EVENT_WINDOW_DAYS,
+                    )
                 any_success = True
             except Exception as e:
                 err = str(e).lower()
@@ -132,6 +156,7 @@ class SpondDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 events_per_member,
                 tasks_per_member,
                 account=acc_username,
+                now=now_utc,
             )
 
         if not any_success and accounts:

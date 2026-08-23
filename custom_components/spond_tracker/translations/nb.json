@@ -50,6 +50,7 @@
         "description": "Konfigurerte kontoer:\n{accounts}",
         "data": {
           "poll_interval": "Oppdateringsintervall (minutter)",
+          "include_uninvited": "Vis arrangementer der invitasjonen ikke er sendt ennå",
           "action": "Handling"
         }
       },
@@ -111,6 +112,8 @@
     "status_declined": "Ikke påmeldt",
     "status_waitinglist": "Venteliste",
     "status_unanswered": "Ikke svart",
+    "status_not_invited": "Invitasjon ikke sendt",
+    "invite_time_label": "Invitasjon sendes",
     "status_unknown": "Ukjent",
     "status_cancelled": "Avlyst"
   },

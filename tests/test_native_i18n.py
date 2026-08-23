@@ -22,7 +22,15 @@ native_load_translations = _mod.load_translations
 NATIVE_STATUS_EMOJI: dict = _mod.STATUS_EMOJI
 NATIVE_TASK_MARKER: str = _mod.TASK_MARKER
 
-_KNOWN_STATUSES = ["accepted", "declined", "waitinglist", "unanswered", "unknown", "cancelled"]
+_KNOWN_STATUSES = [
+    "accepted",
+    "declined",
+    "waitinglist",
+    "unanswered",
+    "unknown",
+    "cancelled",
+    "not_invited",
+]
 
 
 def _flatten(d: dict, prefix: str = "") -> set[str]:
@@ -117,6 +125,7 @@ class TestNativeCalendarKeys:
         "task_signed_up",
         "task_with",
         "main_event_cancelled",
+        "invite_time_label",
     ]
 
     @pytest.mark.parametrize("lang", ["en", "nb"])

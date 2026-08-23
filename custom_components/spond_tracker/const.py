@@ -12,6 +12,13 @@ CONF_POLL_INTERVAL = "poll_interval"
 
 DEFAULT_POLL_INTERVAL = 30  # minutes
 
+# Spond hides events whose invitation has not been sent yet unless they are
+# explicitly asked for, so most of a season is invisible by default. Fetching
+# them multiplies the payload roughly sevenfold, which is why the Spond library
+# leaves them out and why this is opt-in.
+CONF_INCLUDE_UNINVITED = "include_uninvited"
+DEFAULT_INCLUDE_UNINVITED = False
+
 PLATFORMS = [Platform.CALENDAR, Platform.SENSOR]
 
 # --- Actions ---

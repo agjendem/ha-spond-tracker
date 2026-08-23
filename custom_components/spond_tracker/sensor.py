@@ -122,6 +122,9 @@ class SpondEventsSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnt
             "next_event": visible[0] if visible else None,
             "upcoming_count": len(visible),
             "upcoming_events": visible[:10],
+            # Lets a card separate "has not replied" from "cannot reply yet"
+            # without reaching into every event.
+            "not_invited_count": sum(1 for e in visible if e.get("invited") is False),
             "last_updated": self.coordinator.data.polled_at.isoformat(),
         }
 
@@ -177,6 +180,8 @@ class SpondTasksSensor(CoordinatorEntity[SpondDataUpdateCoordinator], SensorEnti
                 "task_type": t.get("task_type"),
                 "adults_only": t.get("adults_only", False),
                 "snoozed_until": t.get("snoozed_until"),
+                "invited": t.get("invited", True),
+                "invite_time": t.get("invite_time"),
             }
             for t in tasks
             if not t.get("cancelled") and t.get("status") != "declined"
