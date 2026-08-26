@@ -17,6 +17,12 @@ blueprint:
         text: {}
     notify_target:
       name: Notification target
+      description: >
+        The notify entity the reminder is sent to. Note that
+        `notify.send_message` carries only a title and a message —
+        per-message options such as `tag` or `group` are not supported by
+        notify entities. If you need those, replace the action with a call
+        to your legacy `notify.mobile_app_*` service.
       selector:
         entity:
           domain: notify
@@ -52,6 +58,3 @@ action:
     data:
       title: !input notification_title
       message: !input notification_message
-      data:
-        tag: "spond_cancel_{{ trigger.event.data.uid }}"
-        group: "Spond"
