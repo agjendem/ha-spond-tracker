@@ -1,10 +1,16 @@
 blueprint:
   name: "Spond: remind before task"
   description: >
-    Send a reminder N minutes before a task on the configured Spond
-    Tracker calendar starts. Task VEVENTs in the calendar are prefixed
+    Send a reminder a configurable time before a task on the configured
+    Spond Tracker calendar starts. Task VEVENTs in the calendar are prefixed
     with `📋` — the automation's condition filters on that prefix so
     regular events don't fire the reminder.
+
+    Breaking change: the `offset_minutes` input was replaced by
+    `reminder_offset`. The old input was a plain number, which Home
+    Assistant's calendar trigger reads as *seconds after* the event starts —
+    so a value of 60 fired one minute late instead of an hour early.
+    Re-select the lead time after updating.
 
     Pair this with the per-member calendar created by Spond Tracker
     (e.g. `calendar.spond_alice`).
@@ -19,18 +25,41 @@ blueprint:
       selector:
         entity:
           domain: calendar
-    offset_minutes:
-      name: Minutes before
-      description: How far ahead to fire the reminder.
-      default: 60
+    reminder_offset:
+      name: Lead time
+      description: >
+        How far ahead of the task's start time the reminder fires.
+      default: "-01:00:00"
       selector:
-        number:
-          min: 5
-          max: 1440
-          step: 5
-          unit_of_measurement: min
+        select:
+          mode: dropdown
+          options:
+            - label: "5 minutes before"
+              value: "-00:05:00"
+            - label: "15 minutes before"
+              value: "-00:15:00"
+            - label: "30 minutes before"
+              value: "-00:30:00"
+            - label: "1 hour before"
+              value: "-01:00:00"
+            - label: "2 hours before"
+              value: "-02:00:00"
+            - label: "3 hours before"
+              value: "-03:00:00"
+            - label: "6 hours before"
+              value: "-06:00:00"
+            - label: "12 hours before"
+              value: "-12:00:00"
+            - label: "1 day before"
+              value: "-24:00:00"
     notify_target:
       name: Notification target
+      description: >
+        The notify entity the reminder is sent to.
+        Note that `notify.send_message` carries only a title and a message —
+        per-message options such as `tag` or `group` are not supported by
+        notify entities. If you need those, replace the action with a call
+        to your legacy `notify.mobile_app_*` service.
       selector:
         entity:
           domain: notify
@@ -57,7 +86,7 @@ trigger:
   - platform: calendar
     event: start
     entity_id: !input calendar_entity
-    offset: !input offset_minutes
+    offset: !input reminder_offset
 
 condition:
   - condition: template
@@ -70,6 +99,3 @@ action:
     data:
       title: !input notification_title
       message: !input notification_message
-      data:
-        tag: "spond_reminder_{{ trigger.calendar_event.uid }}"
-        group: "Spond"

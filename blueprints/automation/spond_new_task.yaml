@@ -23,6 +23,10 @@ blueprint:
       description: >
         A `notify` domain entity that points at the device to notify.
         The HA companion app exposes itself as `notify.<device_name>`.
+        Note that `notify.send_message` carries only a title and a message —
+        per-message options such as `tag` or `group` are not supported by
+        notify entities. If you need those, replace the action with a call
+        to your legacy `notify.mobile_app_*` service.
       selector:
         entity:
           domain: notify
@@ -58,6 +62,3 @@ action:
     data:
       title: !input notification_title
       message: !input notification_message
-      data:
-        tag: "spond_task_{{ trigger.event.data.uid }}"
-        group: "Spond"

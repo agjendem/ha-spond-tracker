@@ -283,7 +283,7 @@ notifications without writing automation YAML. Import via the badges below:
 
 [![Import: event changed](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_event_changed.yaml) **event changed**
 
-[![Import: task reminder](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_task_reminder.yaml) **task reminder (N min before task)**
+[![Import: task reminder](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fagjendem%2Fha-spond-tracker%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fspond_task_reminder.yaml) **task reminder (before a task starts)**
 
 ## Use cases
 
