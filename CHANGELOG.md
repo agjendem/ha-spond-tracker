@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1](https://github.com/agjendem/ha-spond-tracker/compare/v0.12.0...v0.12.1) (2026-08-29)
+
+
+### Bug Fixes
+
+* **blueprints:** make notifications actually send, and fire reminders before the task ([52686c5](https://github.com/agjendem/ha-spond-tracker/commit/52686c5b31cc3f320b1da0c7012693ec77f7a323))
+* **calendar:** skip declined tasks in async_get_events ([2ee793b](https://github.com/agjendem/ha-spond-tracker/commit/2ee793bc775adaf747e055ba832ec652779d57ac))
+
+
+### Dependencies
+
+* bump the pip-deps group with 3 updates ([90137e0](https://github.com/agjendem/ha-spond-tracker/commit/90137e02e7ab0808965985b25083890715756be8))
+
 ## [0.12.0](https://github.com/agjendem/ha-spond-tracker/compare/v0.11.0...v0.12.0) (2026-08-23)
 
 
