@@ -73,7 +73,7 @@ def _event(uid, title, start, end, status="accepted", location=None, address=Non
     }
 
 
-def _task(uid_key, task_name, event_title, start, end):
+def _task(uid_key, task_name, event_title, start, end, status=None):
     return {
         "task_uid_key": uid_key,
         "task_name": task_name,
@@ -86,6 +86,7 @@ def _task(uid_key, task_name, event_title, start, end):
         "required": 0,
         "assigned_count": 0,
         "cancelled": False,
+        "status": status,
     }
 
 
@@ -150,6 +151,25 @@ async def test_async_get_events_excludes_declined():
 
 async def test_async_get_events_includes_tasks():
     task = _task("t1", "Vakt", "Kamp", FUTURE, LATER)
+    cal = SpondCalendarEntity(_make_coordinator(tasks=[task]), MEMBER)
+    results = await cal.async_get_events(None, NOW, NEXT_WEEK)
+    assert len(results) == 1
+    assert "Vakt" in results[0].summary
+
+
+async def test_async_get_events_excludes_declined_task():
+    # A task the member has declined is off their plate, same as a declined
+    # event — it must not linger in the calendar (and trigger a reminder).
+    task = _task("t1", "Vakt", "Kamp", FUTURE, LATER, status="declined")
+    cal = SpondCalendarEntity(_make_coordinator(tasks=[task]), MEMBER)
+    results = await cal.async_get_events(None, NOW, NEXT_WEEK)
+    assert len(results) == 0
+
+
+async def test_async_get_events_includes_unanswered_task():
+    # Unlike "declined", "unanswered" is exactly the state a member still
+    # needs to act on, so it must keep showing up in the calendar.
+    task = _task("t1", "Vakt", "Kamp", FUTURE, LATER, status="unanswered")
     cal = SpondCalendarEntity(_make_coordinator(tasks=[task]), MEMBER)
     results = await cal.async_get_events(None, NOW, NEXT_WEEK)
     assert len(results) == 1

@@ -115,7 +115,10 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
             result.append(self._to_calendar_event(ev))
 
         for task in self.coordinator.data.tasks.get(self._canonical, []):
-            if task.get("cancelled"):
+            # A declined task is not on this member's plate any more — mirror
+            # the event loop above (and sensor.py's _is_outstanding) so it
+            # does not linger in the calendar and trigger reminders.
+            if task.get("cancelled") or task.get("status") == "declined":
                 continue
             start_dt, end_dt = _parse_task_times(task)
             if start_dt is None or end_dt is None:
