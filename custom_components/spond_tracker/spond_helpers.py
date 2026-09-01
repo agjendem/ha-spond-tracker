@@ -389,6 +389,23 @@ def process_raw_events(
 
             if canonical not in events_per_member:
                 continue
+
+            # Spond adds task assignees to `behalfOfIds` without inviting them
+            # to the event itself, which is exactly what leaves `status` at
+            # "unknown": the member is present only because a task points at
+            # them. Once every one of those tasks is declined they have no role
+            # left, so the event should not linger on their calendar. Guarded on
+            # the event actually carrying response data, so an API hiccup that
+            # strips `responses` degrades to the old behaviour rather than
+            # silently emptying every calendar.
+            has_responses = bool(accepted_ids or declined_ids or waiting_ids or unanswered_ids)
+            if (
+                status == "unknown"
+                and has_responses
+                and not any(t["status"] != "declined" for t in my_tasks)
+            ):
+                continue
+
             events_per_member[canonical].append(
                 {
                     "uid": ev_id,
@@ -416,7 +433,7 @@ def parse_clock(value: object, fallback: str) -> time:
                 hour, minute = int(parts[0]), int(parts[1])
                 second = int(parts[2]) if len(parts) > 2 else 0
                 return time(hour, minute, second)
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 continue
     return time(0, 0)
 
