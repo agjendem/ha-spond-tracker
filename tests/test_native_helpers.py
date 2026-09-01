@@ -897,3 +897,93 @@ class TestNextPollMinutes:
             )
             >= 1
         )
+
+
+# ── TestRolelessUnknownEvents ─────────────────────────────────────────────────
+
+
+class TestRolelessUnknownEvents:
+    """Events a member is tied to only by a task they have declined.
+
+    Spond puts task assignees in `behalfOfIds` without inviting them to the
+    event, so their event status stays "unknown". Decline every such task and
+    the member has no role left — the event must not linger on their calendar.
+    """
+
+    @staticmethod
+    def _assigned_task(
+        name: str,
+        accepted: list | None = None,
+        declined: list | None = None,
+        unanswered: list | None = None,
+    ) -> dict:
+        return {
+            "id": f"t-{name}",
+            "name": name,
+            "type": "ASSIGNED",
+            "adultsOnly": True,
+            "accepted": [{"id": i} for i in accepted or []],
+            "declined": [{"id": i} for i in declined or []],
+            "unanswered": list(unanswered or []),
+        }
+
+    @staticmethod
+    def _event_with_other_respondent(task: dict, response: str = "none") -> dict:
+        """Alice is only a task assignee; somebody else carries the responses."""
+        ev = _make_event("e1", "m1", "Alice", response=response, assigned_tasks=[task])
+        # A real event always has someone in a response list; without this the
+        # defensive `has_responses` guard would keep the event regardless.
+        ev["responses"]["acceptedIds"].append("m2")
+        return ev
+
+    def test_declined_only_task_drops_event(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = self._event_with_other_respondent(self._assigned_task("Iskjorer", declined=["m1"]))
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert epm["alice"] == []
+
+    def test_unanswered_task_keeps_event(self) -> None:
+        """Still to decide — the member needs to see it to answer."""
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = self._event_with_other_respondent(self._assigned_task("Iskjorer", unanswered=["m1"]))
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert [e["title"] for e in epm["alice"]] == ["Practice"]
+
+    def test_accepted_task_keeps_event(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = self._event_with_other_respondent(self._assigned_task("Iskjorer", accepted=["m1"]))
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert [e["title"] for e in epm["alice"]] == ["Practice"]
+
+    def test_one_declined_one_live_task_keeps_event(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = self._event_with_other_respondent(self._assigned_task("Iskjorer", declined=["m1"]))
+        ev["tasks"]["assignedTasks"].append(self._assigned_task("Kiosk", unanswered=["m1"]))
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert [e["title"] for e in epm["alice"]] == ["Practice"]
+
+    def test_participant_keeps_event_despite_declined_task(self) -> None:
+        """Declining the task does not cancel an actual invitation."""
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = self._event_with_other_respondent(
+            self._assigned_task("Iskjorer", declined=["m1"]), response="accepted"
+        )
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert [e["status"] for e in epm["alice"]] == ["accepted"]
+
+    def test_event_without_response_data_is_kept(self) -> None:
+        """An API hiccup that strips `responses` must not empty the calendar."""
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event(
+            "e1", "m1", "Alice", response="none",
+            assigned_tasks=[self._assigned_task("Iskjorer", declined=["m1"])],
+        )
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert [e["status"] for e in epm["alice"]] == ["unknown"]
+
+    def test_declined_task_still_reaches_the_task_map(self) -> None:
+        """Dropping the event must not drop the task record the sensors read."""
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = self._event_with_other_respondent(self._assigned_task("Iskjorer", declined=["m1"]))
+        process_raw_events([ev], cn, su, epm, tpm)
+        assert tpm["alice"]["e1::Iskjorer"]["status"] == "declined"
