@@ -1,5 +1,7 @@
 """Config flow for Spond Tracker."""
 
+from __future__ import annotations
+
 import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
