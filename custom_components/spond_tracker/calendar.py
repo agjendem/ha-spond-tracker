@@ -261,7 +261,7 @@ def _parse_event_times(ev: dict) -> tuple[datetime | None, datetime | None]:
         start = datetime.fromisoformat((ev.get("start") or "").replace("Z", "+00:00"))
         end = datetime.fromisoformat((ev.get("end") or "").replace("Z", "+00:00"))
         return start, end
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None, None
 
 
@@ -270,5 +270,5 @@ def _parse_task_times(task: dict) -> tuple[datetime | None, datetime | None]:
         start = datetime.fromisoformat((task.get("start") or "").replace("Z", "+00:00"))
         end = datetime.fromisoformat((task.get("end") or "").replace("Z", "+00:00"))
         return start, end
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None, None

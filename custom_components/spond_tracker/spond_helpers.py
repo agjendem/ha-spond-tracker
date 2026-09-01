@@ -433,7 +433,7 @@ def parse_clock(value: object, fallback: str) -> time:
                 hour, minute = int(parts[0]), int(parts[1])
                 second = int(parts[2]) if len(parts) > 2 else 0
                 return time(hour, minute, second)
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 continue
     return time(0, 0)
 

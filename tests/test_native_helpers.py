@@ -975,7 +975,10 @@ class TestRolelessUnknownEvents:
         """An API hiccup that strips `responses` must not empty the calendar."""
         cn, su, epm, tpm = _fresh_state("alice")
         ev = _make_event(
-            "e1", "m1", "Alice", response="none",
+            "e1",
+            "m1",
+            "Alice",
+            response="none",
             assigned_tasks=[self._assigned_task("Iskjorer", declined=["m1"])],
         )
         process_raw_events([ev], cn, su, epm, tpm)
