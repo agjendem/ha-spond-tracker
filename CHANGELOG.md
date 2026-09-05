@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.2](https://github.com/agjendem/ha-spond-tracker/compare/v0.12.1...v0.12.2) (2026-09-05)
+
+
+### Bug Fixes
+
+* drop events a member is tied to only by a declined task ([0af36ef](https://github.com/agjendem/ha-spond-tracker/commit/0af36ef848c7520e66488dd837997e005559bcab))
+* restore compatibility with Python below 3.14 ([9607065](https://github.com/agjendem/ha-spond-tracker/commit/96070656fc27807676c47ae003a19845de3f519a))
+
+
+### Dependencies
+
+* bump the pip-deps group with 2 updates ([66eb52a](https://github.com/agjendem/ha-spond-tracker/commit/66eb52aa60abe014b05943b8d70ce8e193c73420))
+
 ## [0.12.1](https://github.com/agjendem/ha-spond-tracker/compare/v0.12.0...v0.12.1) (2026-08-29)
 
 
