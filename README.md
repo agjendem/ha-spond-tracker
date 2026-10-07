@@ -169,7 +169,9 @@ status of its own, `not_invited`:
 
 One `calendar.<member>` entity per tracked member. Each entry shows:
 - **Summary**: `{emoji} {event title}` — emoji reflects the RSVP status
-- **Description**: status, location, address, your tasks, full task list
+- **Description**: status, meet-up and start time (when Spond has a separate
+  meet-up time, e.g. `Meet-up: 18:40` / `Match start: 19:40`), location,
+  address, your tasks, full task list
 - **Task entries**: `📋 {task name} — {event title}` at the event's start time
 
 ### Sensors
@@ -178,6 +180,9 @@ One `calendar.<member>` entity per tracked member. Each entry shows:
 |--------|-------|------------|
 | `sensor.spond_<member>` | Events today (int) | `today_events`, `next_event`, `upcoming_events` |
 | `sensor.spond_<member>_tasks` | Active tasks (int) | `tasks` list with event, time, co-assignees, `status`, `task_type`, `adults_only` |
+
+Each event in `today_events`, `next_event` and `upcoming_events` carries `meetup` (ISO 8601 UTC, or `null` when
+the event has no separate meet-up time) and `match` (`true` for match events).
 
 Tasks on an event whose invitation is still unsent carry `invited: false` and
 `invite_time`, and their calendar entry is parenthesised the same way.

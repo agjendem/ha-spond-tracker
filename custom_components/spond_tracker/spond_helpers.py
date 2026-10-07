@@ -37,6 +37,7 @@ def event_fingerprint(e: dict) -> dict:
         "start": e.get("start"),
         "end": e.get("end"),
         "location": e.get("location"),
+        "meetup": e.get("meetup"),
         "status": e.get("status"),
         # Flips the moment the invitation is sent, which is the first point at
         # which answering is even possible.
@@ -151,6 +152,42 @@ def invitation_pending(ev: dict, now: datetime) -> bool:
     if invite_at.tzinfo is None:
         invite_at = invite_at.replace(tzinfo=UTC)
     return invite_at > now
+
+
+def meetup_time(ev: dict) -> str | None:
+    """When participants are asked to turn up, if that is before the start.
+
+    Matches in particular have two times: the meet-up (Norwegian "oppmøte")
+    and the kick-off in ``startTimestamp``. Spond carries the first either as
+    an absolute ``meetupTimestamp`` or, more often, as ``meetupPrior`` — the
+    minutes before the start, sometimes as a string. Returns an ISO 8601 UTC
+    string, or None when there is no separate meet-up time.
+    """
+    try:
+        start = datetime.fromisoformat((ev.get("startTimestamp") or "").replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=UTC)
+    meet = None
+    raw = ev.get("meetupTimestamp")
+    if isinstance(raw, str) and raw:
+        try:
+            meet = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            meet = None
+        if meet is not None and meet.tzinfo is None:
+            meet = meet.replace(tzinfo=UTC)
+    if meet is None:
+        try:
+            prior = int(float(ev.get("meetupPrior") or 0))
+        except ValueError, TypeError:
+            prior = 0
+        if prior > 0:
+            meet = start - timedelta(minutes=prior)
+    if meet is None or meet >= start:
+        return None
+    return meet.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def task_view(task: dict, people: dict[str, dict]) -> dict:
@@ -278,6 +315,8 @@ def process_raw_events(
         invite_time = ev.get("inviteTime") if pending_invite else None
         location = (ev.get("location") or {}).get("feature") or ""
         address = (ev.get("location") or {}).get("address") or ""
+        meetup = meetup_time(ev)
+        is_match = bool(ev.get("matchEvent"))
 
         # --- Tasks: an assignee is ours only if its id is in behalfOfIds ---
         for task in tasks:
@@ -412,6 +451,8 @@ def process_raw_events(
                     "title": ev.get("heading", "Spond"),
                     "start": ev.get("startTimestamp"),
                     "end": ev.get("endTimestamp"),
+                    "meetup": meetup,
+                    "match": is_match,
                     "location": location,
                     "address": address,
                     "status": status,
