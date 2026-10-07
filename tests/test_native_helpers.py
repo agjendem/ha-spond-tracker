@@ -25,6 +25,7 @@ people_in_event = _mod.people_in_event
 task_view = _mod.task_view
 event_fingerprint = _mod.event_fingerprint
 invitation_pending = _mod.invitation_pending
+meetup_time = _mod.meetup_time
 parse_clock = _mod.parse_clock
 in_quiet_hours = _mod.in_quiet_hours
 next_poll_minutes = _mod.next_poll_minutes
@@ -990,3 +991,63 @@ class TestRolelessUnknownEvents:
         ev = self._event_with_other_respondent(self._assigned_task("Iskjorer", declined=["m1"]))
         process_raw_events([ev], cn, su, epm, tpm)
         assert tpm["alice"]["e1::Iskjorer"]["status"] == "declined"
+
+
+# ── TestMeetupTime ───────────────────────────────────────────────────────────
+
+
+class TestMeetupTime:
+    START = "2026-10-08T17:40:00Z"
+
+    def test_meetup_prior_minutes_before_start(self) -> None:
+        ev = {"startTimestamp": self.START, "meetupPrior": 60}
+        assert meetup_time(ev) == "2026-10-08T16:40:00Z"
+
+    def test_meetup_prior_as_string(self) -> None:
+        ev = {"startTimestamp": self.START, "meetupPrior": "45"}
+        assert meetup_time(ev) == "2026-10-08T16:55:00Z"
+
+    def test_absolute_meetup_timestamp_wins(self) -> None:
+        ev = {
+            "startTimestamp": self.START,
+            "meetupTimestamp": "2026-10-08T16:30:00.000Z",
+            "meetupPrior": 60,
+        }
+        assert meetup_time(ev) == "2026-10-08T16:30:00Z"
+
+    def test_no_meetup_fields(self) -> None:
+        """Training without a separate meet-up time starts when it starts."""
+        assert meetup_time({"startTimestamp": self.START}) is None
+
+    def test_zero_or_junk_prior_is_ignored(self) -> None:
+        assert meetup_time({"startTimestamp": self.START, "meetupPrior": 0}) is None
+        assert meetup_time({"startTimestamp": self.START, "meetupPrior": "soon"}) is None
+
+    def test_meetup_at_or_after_start_is_ignored(self) -> None:
+        ev = {"startTimestamp": self.START, "meetupTimestamp": self.START}
+        assert meetup_time(ev) is None
+
+    def test_unparseable_start(self) -> None:
+        assert meetup_time({"startTimestamp": "tomorrow", "meetupPrior": 60}) is None
+
+    def test_event_carries_meetup_and_match_flag(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        ev = _make_event("e1", "m1", "Alice", start=self.START, end="2026-10-08T18:40:00Z")
+        ev["meetupPrior"] = 60
+        ev["matchEvent"] = True
+        process_raw_events([ev], cn, su, epm, tpm)
+        e = epm["alice"][0]
+        assert e["meetup"] == "2026-10-08T16:40:00Z"
+        assert e["match"] is True
+
+    def test_plain_event_has_no_meetup(self) -> None:
+        cn, su, epm, tpm = _fresh_state("alice")
+        process_raw_events([_make_event("e1", "m1", "Alice")], cn, su, epm, tpm)
+        e = epm["alice"][0]
+        assert e["meetup"] is None
+        assert e["match"] is False
+
+    def test_moved_meetup_registers_as_a_change(self) -> None:
+        before = event_fingerprint({"title": "Match", "meetup": "2026-10-08T16:40:00Z"})
+        after = event_fingerprint({"title": "Match", "meetup": "2026-10-08T16:10:00Z"})
+        assert before != after
