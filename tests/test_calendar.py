@@ -3,6 +3,8 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
+from homeassistant.util import dt as dt_util
+
 from custom_components.spond_tracker.calendar import SpondCalendarEntity
 from custom_components.spond_tracker.coordinator import CoordinatorData
 
@@ -21,6 +23,9 @@ EN_STRINGS = {
         "status_label": "Status",
         "location_label": "Location",
         "address_label": "Address",
+        "meetup_label": "Meet-up",
+        "start_label": "Start",
+        "match_start_label": "Match start",
         "my_tasks_header": "My tasks:",
         "all_tasks_header": "All tasks:",
         "signed_up_suffix": "signed up",
@@ -214,6 +219,36 @@ def test_event_description_includes_location():
     cal = SpondCalendarEntity(_make_coordinator(events=[ev]), MEMBER)
     ce = cal._to_calendar_event(ev)
     assert "Stadion" in ce.description
+
+
+def test_match_description_has_meetup_and_match_start():
+    ev = _event("e1", "Away game", FUTURE, LATER)
+    ev["meetup"] = (FUTURE - timedelta(hours=1)).isoformat()
+    ev["match"] = True
+    cal = SpondCalendarEntity(_make_coordinator(events=[ev]), MEMBER)
+    desc = cal._to_calendar_event(ev).description
+    meet = dt_util.as_local(FUTURE - timedelta(hours=1)).strftime("%H:%M")
+    start = dt_util.as_local(FUTURE).strftime("%H:%M")
+    assert f"Meet-up: {meet}" in desc
+    assert f"Match start: {start}" in desc
+
+
+def test_other_event_with_meetup_says_start():
+    ev = _event("e1", "Training", FUTURE, LATER)
+    ev["meetup"] = (FUTURE - timedelta(minutes=30)).isoformat()
+    cal = SpondCalendarEntity(_make_coordinator(events=[ev]), MEMBER)
+    desc = cal._to_calendar_event(ev).description
+    assert "Meet-up: " in desc
+    assert f"Start: {dt_util.as_local(FUTURE).strftime('%H:%M')}" in desc
+    assert "Match start" not in desc
+
+
+def test_no_meetup_lines_without_meetup():
+    ev = _event("e1", "Training", FUTURE, LATER)
+    cal = SpondCalendarEntity(_make_coordinator(events=[ev]), MEMBER)
+    desc = cal._to_calendar_event(ev).description
+    assert "Meet-up" not in desc
+    assert "Start:" not in desc
 
 
 def test_event_uid_is_stable():

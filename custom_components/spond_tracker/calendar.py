@@ -145,6 +145,15 @@ class SpondCalendarEntity(CoordinatorEntity[SpondDataUpdateCoordinator], Calenda
             summary = f"{emoji} {ev['title']}".strip()
 
         desc_parts = [f"{self._t('calendar.status_label')}: {self._t(f'calendar.status_{status}')}"]
+        meetup = _format_clock(ev.get("meetup"))
+        if meetup:
+            # The calendar entry starts at the kick-off; spell out both times so
+            # people and templates can tell when to turn up.
+            start_label = "match_start_label" if ev.get("match") else "start_label"
+            desc_parts.append(f"{self._t('calendar.meetup_label')}: {meetup}")
+            desc_parts.append(
+                f"{self._t('calendar.' + start_label)}: {_format_clock(ev.get('start'))}"
+            )
         if ev.get("location"):
             desc_parts.append(f"{self._t('calendar.location_label')}: {ev['location']}")
         if ev.get("address"):
@@ -254,6 +263,14 @@ def _format_invite_time(value: object) -> str:
         return ""
     parsed = dt_util.parse_datetime(value.replace("Z", "+00:00"))
     return dt_util.as_local(parsed).strftime("%d.%m.%Y %H:%M") if parsed else ""
+
+
+def _format_clock(value: object) -> str:
+    """Local "HH:MM" for an ISO timestamp, or ""."""
+    if not isinstance(value, str) or not value:
+        return ""
+    parsed = dt_util.parse_datetime(value.replace("Z", "+00:00"))
+    return dt_util.as_local(parsed).strftime("%H:%M") if parsed else ""
 
 
 def _parse_event_times(ev: dict) -> tuple[datetime | None, datetime | None]:
